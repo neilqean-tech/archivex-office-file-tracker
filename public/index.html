@@ -1,0 +1,3215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="aurora">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office File Tracker | Executive Dashboard</title>
+    <!-- Restore saved theme before first paint (prevents a light flash for dark-mode users) -->
+    <script>
+        try {
+            var savedTheme = localStorage.getItem('uiTheme');
+            if (savedTheme === 'aurora' || savedTheme === 'graphite') {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            }
+        } catch (e) { /* storage unavailable — keep default */ }
+    </script>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lightweight QR Libraries -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        /* ===== Print Styles for QR Code Labels ===== */
+        @media print {
+            body * { visibility: hidden; }
+            #printBadgeArea, #printBadgeArea * { visibility: visible; }
+            #printBadgeArea {
+                position: absolute; left: 0; top: 0; width: 100%;
+                margin: 0; padding: 20px; background: white !important;
+            }
+            .no-print { display: none !important; }
+            /* Dark (Graphite) theme must never invert printed QR labels */
+            [data-theme='graphite'] #printBadgeArea,
+            [data-theme='graphite'] #printBadgeArea * {
+                background: transparent !important;
+                color: #0f172a !important;
+                border-color: #94a3b8 !important;
+            }
+            [data-theme='graphite'] #printBadgeArea { background: white !important; }
+        }
+        /* ===== Custom Scrollbars (light) ===== */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* ============================================================
+           THEME 2 — AURORA GLASS (frosted light + gradient mesh)
+           ============================================================ */
+
+        /* Full-page mesh-gradient canvas (fixed while scrolling) */
+        [data-theme='aurora'] body {
+            background:
+                radial-gradient(420px 220px at 8% 12%, rgba(99,102,241,0.28), transparent 65%),
+                radial-gradient(460px 240px at 92% 8%, rgba(14,165,233,0.25), transparent 65%),
+                radial-gradient(520px 300px at 78% 95%, rgba(232,121,249,0.20), transparent 65%),
+                radial-gradient(420px 260px at 15% 90%, rgba(45,212,191,0.18), transparent 65%),
+                linear-gradient(160deg, #eef2ff 0%, #e0f2fe 45%, #faf5ff 100%) !important;
+            background-attachment: fixed !important;
+            color: #334155 !important;
+        }
+
+        /* Top bar — frosted glass strip */
+        [data-theme='aurora'] body > header {
+            background: rgba(255,255,255,0.65) !important;
+            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(16px);
+            border-bottom-color: rgba(255,255,255,0.85) !important;
+        }
+
+        /* Dashboard / registry / circulation cards — translucent frosted panels */
+        [data-theme='aurora'] #tabPane-dashboard .bg-white,
+        [data-theme='aurora'] #tabPane-registry .bg-white,
+        [data-theme='aurora'] #tabPane-circulation .bg-white {
+            background: rgba(255,255,255,0.62) !important;
+            -webkit-backdrop-filter: blur(18px);
+            backdrop-filter: blur(18px);
+            border-color: rgba(255,255,255,0.9) !important;
+            box-shadow: 0 10px 30px -16px rgba(79,70,229,0.22) !important;
+            transition: background-color .2s ease, box-shadow .2s ease, border-color .2s ease;
+        }
+        [data-theme='aurora'] #tabPane-dashboard .bg-white:hover,
+        [data-theme='aurora'] #tabPane-registry .bg-white:hover,
+        [data-theme='aurora'] #tabPane-circulation .bg-white:hover {
+            box-shadow: 0 22px 40px -18px rgba(79,70,229,0.42) !important;
+            background: rgba(255,255,255,0.78) !important;
+        }
+
+        /* Distribution bar track → soft glass */
+        [data-theme='aurora'] #tabPane-dashboard .bg-slate-100 {
+            background: rgba(255,255,255,0.55) !important;
+        }
+
+        /* KPI accents — aurora palette (labels & numbers) */
+        [data-theme='aurora'] #tabPane-dashboard .text-sky-600    { color: #0284c7 !important; }
+        [data-theme='aurora'] #tabPane-dashboard .text-sky-700    { color: #0369a1 !important; }
+        [data-theme='aurora'] #tabPane-dashboard .text-emerald-600 { color: #059669 !important; }
+        [data-theme='aurora'] #tabPane-dashboard .text-emerald-700 { color: #047857 !important; }
+        [data-theme='aurora'] #tabPane-dashboard .text-amber-600  { color: #d97706 !important; }
+        [data-theme='aurora'] #tabPane-dashboard .text-amber-700  { color: #b45309 !important; }
+        [data-theme='aurora'] #tabPane-dashboard .text-rose-600   { color: #e11d48 !important; }
+        [data-theme='aurora'] #tabPane-dashboard .text-rose-700   { color: #be123c !important; }
+        [data-theme='aurora'] #tabPane-dashboard .text-indigo-600 { color: #7c3aed !important; }
+        [data-theme='aurora'] #tabPane-dashboard .text-indigo-700 { color: #6d28d9 !important; }
+
+        /* Text on frosted cards */
+        [data-theme='aurora'] #tabPane-dashboard .text-slate-900 { color: #0f172a !important; }
+        [data-theme='aurora'] #tabPane-dashboard .text-slate-800 { color: #1e293b !important; }
+        [data-theme='aurora'] #tabPane-dashboard .text-slate-500 { color: #64748b !important; }
+
+        /* Brand icon — indigo → sky gradient (was sky → indigo; aurora flips the emphasis) */
+        [data-theme='aurora'] .from-sky-600.to-indigo-600 {
+            background: linear-gradient(135deg, #6366f1, #0ea5e9) !important;
+            box-shadow: 0 8px 20px -6px rgba(99,102,241,0.55) !important;
+        }
+
+        /* ============================================================
+           THEME B — GRAPHITE PRO (dark: navy canvas + glowing accents)
+           ============================================================ */
+
+        /* Canvas + corner glows (body.bg-slate-100 needs matching specificity or the utility wins) */
+        [data-theme='graphite'] body,
+        [data-theme='graphite'] body.bg-slate-100 {
+            background:
+                radial-gradient(640px 280px at 12% -10%, rgba(56,189,248,0.32), transparent 60%),
+                radial-gradient(560px 300px at 88% 0%, rgba(139,92,246,0.28), transparent 62%),
+                #0b1220 !important;
+            background-attachment: fixed !important;
+            color: #cbd5e1 !important;
+        }
+        [data-theme='graphite'] body.text-slate-800 { color: #cbd5e1 !important; }
+
+        /* Every white surface → elevated card / input / modal panel */
+        [data-theme='graphite'] .bg-white {
+            background: #1e293b !important;
+            border-color: rgba(148,163,184,0.18) !important;
+        }
+
+        /* Chrome (top bar + tab strip) sits one shade above the canvas */
+        [data-theme='graphite'] body > header.bg-white,
+        [data-theme='graphite'] nav.bg-white {
+            background: #0f172a !important;
+            border-bottom-color: rgba(148,163,184,0.16) !important;
+        }
+
+        /* Soft slate washes (zebra rows, tracks, count chips) */
+        [data-theme='graphite'] .bg-slate-50,
+        [data-theme='graphite'] .bg-slate-50\/50,
+        [data-theme='graphite'] .bg-slate-50\/80,
+        [data-theme='graphite'] .bg-slate-100,
+        [data-theme='graphite'] .bg-slate-100\/80 { background: rgba(148,163,184,0.07) !important; }
+        [data-theme='graphite'] .bg-slate-200 { background: rgba(148,163,184,0.15) !important; }
+
+        /* Borders, dividers & hover borders */
+        [data-theme='graphite'] .border-slate-100,
+        [data-theme='graphite'] .border-slate-200,
+        [data-theme='graphite'] .border-slate-200\/80,
+        [data-theme='graphite'] .border-slate-300 { border-color: rgba(148,163,184,0.22) !important; }
+        [data-theme='graphite'] .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(148,163,184,0.16) !important; }
+        [data-theme='graphite'] .hover\:border-slate-300:hover { border-color: rgba(148,163,184,0.45) !important; }
+
+        /* Neutral text hierarchy (kept readable on #1e293b surfaces) */
+        [data-theme='graphite'] .text-slate-900,
+        [data-theme='graphite'] .text-slate-800,
+        [data-theme='graphite'] .hover\:text-slate-900:hover,
+        [data-theme='graphite'] .hover\:text-slate-800:hover { color: #f1f5f9 !important; }
+        [data-theme='graphite'] .text-slate-700 { color: #cbd5e1 !important; }
+        [data-theme='graphite'] .text-slate-600,
+        [data-theme='graphite'] .text-slate-500,
+        [data-theme='graphite'] .text-slate-400,
+        [data-theme='graphite'] .hover\:text-slate-600:hover { color: #94a3b8 !important; }
+
+        /* Row/card hover flashes stay subtle instead of flashing white */
+        [data-theme='graphite'] .hover\:bg-slate-50:hover,
+        [data-theme='graphite'] .hover\:bg-slate-50\/80:hover,
+        [data-theme='graphite'] .hover\:bg-slate-100:hover,
+        [data-theme='graphite'] .hover\:bg-slate-100\/80:hover,
+        [data-theme='graphite'] .hover\:bg-slate-200:hover { background-color: rgba(148,163,184,0.10) !important; }
+
+        /* Form controls & placeholders — force dark fields.
+           Inputs with no bg class fell back to the browser's white
+           "field" color, making light typed text unreadable.
+           (Doubled attribute selector outranks the .bg-white card rule
+           so every field sits uniformly recessed on the card.) */
+        [data-theme='graphite'] { color-scheme: dark; }
+
+        [data-theme='graphite'][data-theme='graphite'] input:not([type='checkbox']):not([type='radio']):not([type='range']),
+        [data-theme='graphite'][data-theme='graphite'] select,
+        [data-theme='graphite'][data-theme='graphite'] textarea {
+            background-color: #0f172a !important;
+            color: #e2e8f0 !important;
+            color-scheme: dark;
+        }
+        [data-theme='graphite'] input::placeholder,
+        [data-theme='graphite'] textarea::placeholder { color: #94a3b8 !important; }
+
+        /* Active tab underline brightens with its label */
+        [data-theme='graphite'] .border-sky-600 { border-color: #38bdf8 !important; }
+
+        /* Brand icon — sky → violet glow */
+        [data-theme='graphite'] .from-sky-600.to-indigo-600 {
+            background: linear-gradient(135deg, #38bdf8, #8b5cf6) !important;
+            box-shadow: 0 8px 22px -6px rgba(56,189,248,0.50) !important;
+        }
+
+        /* ---------- Accent chips: light tints → dark tints, text brightened ---------- */
+        /* sky */
+        [data-theme='graphite'] .bg-sky-50,
+        [data-theme='graphite'] .bg-sky-100,
+        [data-theme='graphite'] .hover\:bg-sky-50:hover,
+        [data-theme='graphite'] .hover\:bg-sky-50\/40:hover { background: rgba(56,189,248,0.14) !important; }
+        [data-theme='graphite'] .border-sky-100,
+        [data-theme='graphite'] .border-sky-200,
+        [data-theme='graphite'] .border-sky-200\/60 { border-color: rgba(56,189,248,0.38) !important; }
+        [data-theme='graphite'] .text-sky-600,
+        [data-theme='graphite'] .hover\:text-sky-600:hover { color: #38bdf8 !important; }
+        [data-theme='graphite'] .text-sky-700,
+        [data-theme='graphite'] .text-sky-800,
+        [data-theme='graphite'] .hover\:text-sky-800:hover { color: #7dd3fc !important; }
+
+        /* emerald */
+        [data-theme='graphite'] .bg-emerald-50,
+        [data-theme='graphite'] .bg-emerald-50\/60,
+        [data-theme='graphite'] .bg-emerald-100,
+        [data-theme='graphite'] .hover\:bg-emerald-50:hover,
+        [data-theme='graphite'] .hover\:bg-emerald-50\/40:hover { background: rgba(16,185,129,0.14) !important; }
+        [data-theme='graphite'] .border-emerald-200 { border-color: rgba(16,185,129,0.38) !important; }
+        [data-theme='graphite'] .text-emerald-600 { color: #34d399 !important; }
+        [data-theme='graphite'] .text-emerald-700 { color: #6ee7b7 !important; }
+        [data-theme='graphite'] .text-emerald-900 { color: #a7f3d0 !important; }
+
+        /* amber */
+        [data-theme='graphite'] .bg-amber-50,
+        [data-theme='graphite'] .bg-amber-100,
+        [data-theme='graphite'] .hover\:bg-amber-50:hover,
+        [data-theme='graphite'] .hover\:bg-amber-50\/40:hover { background: rgba(245,158,11,0.14) !important; }
+        [data-theme='graphite'] .border-amber-200 { border-color: rgba(245,158,11,0.38) !important; }
+        [data-theme='graphite'] .text-amber-600 { color: #fbbf24 !important; }
+        [data-theme='graphite'] .text-amber-700,
+        [data-theme='graphite'] .text-amber-800 { color: #fcd34d !important; }
+
+        /* rose */
+        [data-theme='graphite'] .bg-rose-50,
+        [data-theme='graphite'] .bg-rose-100,
+        [data-theme='graphite'] .hover\:bg-rose-50:hover,
+        [data-theme='graphite'] .hover\:bg-rose-50\/40:hover { background: rgba(244,63,94,0.14) !important; }
+        [data-theme='graphite'] .border-rose-200 { border-color: rgba(244,63,94,0.38) !important; }
+        [data-theme='graphite'] .text-rose-600,
+        [data-theme='graphite'] .hover\:text-rose-600:hover { color: #fb7185 !important; }
+        [data-theme='graphite'] .text-rose-700 { color: #fda4af !important; }
+        [data-theme='graphite'] .text-rose-800,
+        [data-theme='graphite'] .hover\:text-rose-800:hover { color: #fecdd3 !important; }
+
+        /* indigo */
+        [data-theme='graphite'] .bg-indigo-50,
+        [data-theme='graphite'] .bg-indigo-100,
+        [data-theme='graphite'] .hover\:bg-indigo-50:hover,
+        [data-theme='graphite'] .hover\:bg-indigo-50\/40:hover { background: rgba(99,102,241,0.14) !important; }
+        [data-theme='graphite'] .border-indigo-200 { border-color: rgba(99,102,241,0.38) !important; }
+        [data-theme='graphite'] .text-indigo-600 { color: #818cf8 !important; }
+        [data-theme='graphite'] .text-indigo-700 { color: #a5b4fc !important; }
+
+        /* blue */
+        [data-theme='graphite'] .bg-blue-50 { background: rgba(59,130,246,0.14) !important; }
+        [data-theme='graphite'] .border-blue-200 { border-color: rgba(59,130,246,0.38) !important; }
+        [data-theme='graphite'] .text-blue-700 { color: #93c5fd !important; }
+
+        /* purple */
+        [data-theme='graphite'] .bg-purple-50 { background: rgba(168,85,247,0.14) !important; }
+        [data-theme='graphite'] .border-purple-200 { border-color: rgba(168,85,247,0.38) !important; }
+        [data-theme='graphite'] .text-purple-700 { color: #c4b5fd !important; }
+
+        /* Dark scrollbars (viewport + inner scrollers) */
+        html[data-theme='graphite']::-webkit-scrollbar-track,
+        html[data-theme='graphite'] ::-webkit-scrollbar-track { background: #0f172a; }
+        html[data-theme='graphite']::-webkit-scrollbar-thumb,
+        html[data-theme='graphite'] ::-webkit-scrollbar-thumb { background: #334155; }
+        html[data-theme='graphite']::-webkit-scrollbar-thumb:hover,
+        html[data-theme='graphite'] ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* ============================================================
+           OPTIONS TAB — theme picker cards (shared by both themes)
+           ============================================================ */
+        .theme-option {
+            border: 2px solid rgba(100,116,139,0.30);
+            transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+        }
+        .theme-option:hover {
+            border-color: rgba(99,102,241,0.55);
+            transform: translateY(-2px);
+        }
+        .theme-option.active {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.22), 0 14px 30px -18px rgba(79,70,229,0.55);
+        }
+        .theme-check {
+            display: none;
+            width: 22px; height: 22px; flex: none;
+            border-radius: 9999px;
+            background: #6366f1; color: #fff;
+            font-size: 12px; font-weight: 800;
+            align-items: center; justify-content: center;
+        }
+        .theme-option.active .theme-check { display: inline-flex; }
+        .swatch-aurora {
+            background:
+                radial-gradient(120px 60px at 18% 0%, rgba(99,102,241,0.45), transparent 70%),
+                radial-gradient(150px 70px at 92% 15%, rgba(14,165,233,0.42), transparent 70%),
+                linear-gradient(160deg, #eef2ff 0%, #e0f2fe 55%, #faf5ff 100%);
+        }
+        .swatch-graphite {
+            background:
+                radial-gradient(120px 60px at 18% 0%, rgba(56,189,248,0.40), transparent 70%),
+                radial-gradient(150px 70px at 92% 15%, rgba(139,92,246,0.38), transparent 70%),
+                #0b1220;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col font-sans">
+
+    <!-- Top Application Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <!-- Brand & Status -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-sky-500/20">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <h1 class="text-lg font-bold text-slate-900 tracking-tight">ARCHIVEX</h1>
+                        <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-sky-100 text-sky-800 border border-sky-200">v2.1 Tabs</span>
+                    </div>
+                    <p class="text-xs text-slate-500 font-medium hidden sm:block">Office Document & Circulation Management</p>
+                </div>
+            </div>
+
+            <!-- Header Actions -->
+            <div class="flex items-center gap-2.5 md:gap-4">
+                <!-- System status -->
+                <div class="hidden lg:flex items-center gap-2 px-3.5 py-1.5 bg-emerald-50 border border-emerald-200 rounded-full text-xs text-emerald-700 font-medium">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>Database Online</span>
+                </div>
+
+                <!-- Vertical divider: system status | account & actions -->
+                <div class="hidden lg:block w-px h-8 bg-slate-200" aria-hidden="true"></div>
+
+                <!-- Auth Container (dynamically managed) -->
+                <div id="authContainer">
+                    <!-- Guest State: Show Login Button -->
+                    <button onclick="openLoginModal()" id="loginBtn" class="px-3.5 py-2 bg-slate-700 hover:bg-slate-800 active:bg-slate-900 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 shadow-sm transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                        </svg>
+                        <span>Admin Login</span>
+                    </button>
+                </div>
+
+                <!-- Register Document (Admin only when logged in) -->
+                <button onclick="openRegisterModal()" id="registerBtn" class="px-3.5 py-2 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 shadow-sm shadow-sky-600/30 transition hidden">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <span>Register Document</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Tab Navigation Bar -->
+    <nav class="bg-white border-b border-slate-200 shadow-xs sticky top-16 z-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-1 sm:space-x-4 overflow-x-auto">
+            <!-- Tab 1: Dashboard Overview -->
+            <button onclick="switchTab('dashboard')" id="tabBtn-dashboard" class="tab-btn px-4 py-3.5 text-xs sm:text-sm font-bold border-b-2 border-sky-600 text-sky-600 flex items-center gap-2 whitespace-nowrap transition cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                </svg>
+                <span>Dashboard</span>
+            </button>
+
+            <!-- Tab 2: Document Registry -->
+            <button onclick="switchTab('registry')" id="tabBtn-registry" class="tab-btn px-4 py-3.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 flex items-center gap-2 whitespace-nowrap transition cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                </svg>
+                <span>Document Registry</span>
+                <span id="tabBadgeRegistry" class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-700 font-bold">--</span>
+            </button>
+
+            <!-- Tab 3: Circulation Terminal -->
+            <button onclick="switchTab('circulation')" id="tabBtn-circulation" class="tab-btn px-4 py-3.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 flex items-center gap-2 whitespace-nowrap transition cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                </svg>
+                <span>Circulation Desk</span>
+                <span id="tabBadgeCirculation" class="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-800 font-bold hidden">0 out</span>
+            </button>
+
+            <!-- Tab 4: Audit Trail -->
+            <button onclick="switchTab('audit')" id="tabBtn-audit" class="tab-btn px-4 py-3.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 flex items-center gap-2 whitespace-nowrap transition cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>Audit Logs</span>
+            </button>
+
+            <!-- Tab 5: Options -->
+            <button onclick="switchTab('options')" id="tabBtn-options" class="tab-btn px-4 py-3.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 flex items-center gap-2 whitespace-nowrap transition cursor-pointer">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                <span>Options</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Workspace Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ========================================================================= -->
+        <!-- TAB PANE 1: DASHBOARD & EXECUTIVE OVERVIEW -->
+        <!-- ========================================================================= -->
+        <div id="tabPane-dashboard" class="tab-pane space-y-6">
+            
+            <!-- Executive KPI Metric Cards Row -->
+            <section aria-label="Executive Metrics">
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    
+                    <!-- Card 1: Total Documents -->
+                    <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow transition relative overflow-hidden group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Inventory</span>
+                            <span class="p-2 rounded-lg bg-sky-50 text-sky-600 group-hover:scale-110 transition">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path>
+                                </svg>
+                            </span>
+                        </div>
+                        <div class="mt-3">
+                            <div id="statTotal" class="text-3xl font-extrabold text-slate-900 tracking-tight">--</div>
+                            <div class="flex items-center text-xs text-slate-500 mt-1 font-medium">
+                                <span>Tracked documents</span>
+                            </div>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-sky-400 to-sky-600"></div>
+                    </div>
+
+                    <!-- Card 2: Available in Storage -->
+                    <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow transition relative overflow-hidden group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Available</span>
+                            <span class="p-2 rounded-lg bg-emerald-50 text-emerald-600 group-hover:scale-110 transition">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </span>
+                        </div>
+                        <div class="mt-3">
+                            <div id="statAvailable" class="text-3xl font-extrabold text-emerald-600 tracking-tight">--</div>
+                            <div class="flex items-center text-xs text-emerald-700 mt-1 font-medium">
+                                <span>Ready on shelves</span>
+                            </div>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
+                    </div>
+
+                    <!-- Card 3: Checked Out (In Circulation) -->
+                    <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow transition relative overflow-hidden group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-amber-600 uppercase tracking-wider">In Circulation</span>
+                            <span class="p-2 rounded-lg bg-amber-50 text-amber-600 group-hover:scale-110 transition">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                </svg>
+                            </span>
+                        </div>
+                        <div class="mt-3">
+                            <div id="statCheckedOut" class="text-3xl font-extrabold text-amber-600 tracking-tight">--</div>
+                            <div class="flex items-center text-xs text-amber-700 mt-1 font-medium">
+                                <span>Active with staff</span>
+                            </div>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 h-1 bg-amber-500"></div>
+                    </div>
+
+                    <!-- Card: Overdue (past due date) -->
+                    <div onclick="gotoOverdueFilter()" title="Show overdue documents in the registry" class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow transition relative overflow-hidden group cursor-pointer">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-rose-600 uppercase tracking-wider">Overdue</span>
+                            <span class="p-2 rounded-lg bg-rose-50 text-rose-600 group-hover:scale-110 transition">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </span>
+                        </div>
+                        <div class="mt-3">
+                            <div id="statOverdue" class="text-3xl font-extrabold text-rose-600 tracking-tight">--</div>
+                            <div class="flex items-center text-xs text-rose-700 mt-1 font-medium">
+                                <span>Past their due date</span>
+                            </div>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 h-1 bg-rose-500"></div>
+                    </div>
+
+                    <!-- Card 4: Classified Clearance -->
+                    <div class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow transition relative overflow-hidden group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-rose-600 uppercase tracking-wider">Classified 🔒</span>
+                            <span class="p-2 rounded-lg bg-rose-50 text-rose-600 group-hover:scale-110 transition">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                                </svg>
+                            </span>
+                        </div>
+                        <div class="mt-3">
+                            <div id="statClassified" class="text-3xl font-extrabold text-rose-600 tracking-tight">--</div>
+                            <div class="flex items-center text-xs text-rose-700 mt-1 font-medium">
+                                <span>Restricted access</span>
+                            </div>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 h-1 bg-rose-500"></div>
+                    </div>
+
+                    <!-- Card 5: 24h Velocity -->
+                    <div class="col-span-2 md:col-span-1 bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow transition relative overflow-hidden group">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold text-indigo-600 uppercase tracking-wider">24h Velocity</span>
+                            <span class="p-2 rounded-lg bg-indigo-50 text-indigo-600 group-hover:scale-110 transition">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                            </span>
+                        </div>
+                        <div class="mt-3">
+                            <div id="statVelocity" class="text-3xl font-extrabold text-indigo-600 tracking-tight">--</div>
+                            <div class="flex items-center text-xs text-indigo-700 mt-1 font-medium">
+                                <span>Recent operations</span>
+                            </div>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500"></div>
+                    </div>
+
+                </div>
+            </section>
+
+            <!-- Department Distribution Bar & Format Badges -->
+            <section class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-3">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path>
+                        </svg>
+                        Departmental Distribution & Format Breakdown
+                    </h3>
+                    <span id="categorySummaryText" class="text-xs text-slate-500 font-medium">Loading inventory metrics...</span>
+                </div>
+                
+                <!-- Distribution Progress Bar -->
+                <div id="categoryDistBar" class="h-3 w-full bg-slate-100 rounded-full flex overflow-hidden"></div>
+                <div id="categoryLegend" class="flex flex-wrap gap-3 pt-1"></div>
+
+                <div class="pt-2 border-t border-slate-100 flex items-center gap-2 text-xs">
+                    <span class="text-slate-500 font-semibold">Media Types:</span>
+                    <span id="badgePhysical" class="px-2.5 py-1 rounded bg-blue-50 text-blue-700 border border-blue-200 font-medium">Physical: --</span>
+                    <span id="badgeDigital" class="px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium">Digital: --</span>
+                    <span id="badgeHybrid" class="px-2.5 py-1 rounded bg-purple-50 text-purple-700 border border-purple-200 font-medium">Hybrid: --</span>
+                </div>
+            </section>
+
+            <!-- Quick Launch & Activity Pulse Grid -->
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Quick Navigation & Desk Actions -->
+                <div class="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900 tracking-tight">System Navigation Shortcuts</h3>
+                        <p class="text-xs text-slate-500">Jump directly to specific operational modules</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <button onclick="switchTab('registry')" class="p-4 rounded-xl border border-slate-200 hover:border-sky-300 hover:bg-sky-50/40 text-left transition group">
+                            <div class="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center font-bold mb-2 group-hover:scale-110 transition">
+                                📁
+                            </div>
+                            <div class="font-bold text-slate-900 text-xs">Document Registry</div>
+                            <div class="text-[11px] text-slate-500 mt-0.5">Search, browse, edit, and classify files</div>
+                        </button>
+
+                        <button onclick="switchTab('circulation')" class="p-4 rounded-xl border border-slate-200 hover:border-amber-300 hover:bg-amber-50/40 text-left transition group">
+                            <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold mb-2 group-hover:scale-110 transition">
+                                ⚡
+                            </div>
+                            <div class="font-bold text-slate-900 text-xs">Circulation Desk</div>
+                            <div class="text-[11px] text-slate-500 mt-0.5">Scan QR barcodes to Check Out & Return</div>
+                        </button>
+
+                        <button onclick="openRegisterModal()" class="p-4 rounded-xl border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/40 text-left transition group">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold mb-2 group-hover:scale-110 transition">
+                                ➕
+                            </div>
+                            <div class="font-bold text-slate-900 text-xs">Register New Document</div>
+                            <div class="text-[11px] text-slate-500 mt-0.5">Create record and generate barcode label</div>
+                        </button>
+
+                        <button onclick="switchTab('audit')" class="p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 text-left transition group">
+                            <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold mb-2 group-hover:scale-110 transition">
+                                📋
+                            </div>
+                            <div class="font-bold text-slate-900 text-xs">Audit History</div>
+                            <div class="text-[11px] text-slate-500 mt-0.5">Review accountability logs and timestamps</div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Latest Circulation Activity Pulse -->
+                <div class="bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-900 tracking-tight">Recent Activity Pulse</h3>
+                            <p class="text-xs text-slate-500">Live operational events stream</p>
+                        </div>
+                        <button onclick="switchTab('audit')" class="text-xs text-sky-600 hover:text-sky-800 font-semibold">View All →</button>
+                    </div>
+
+                    <div id="dashboardRecentLogs" class="space-y-2.5 max-h-[220px] overflow-y-auto pr-1 text-xs">
+                        <div class="text-slate-400 text-center py-4">Loading recent activity...</div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB PANE 2: DOCUMENT REGISTRY (Full-Width Workspace) -->
+        <!-- ========================================================================= -->
+        <div id="tabPane-registry" class="tab-pane hidden space-y-4">
+            
+            <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <!-- Registry Controls & Multi-Filter Bar -->
+                <div class="p-5 border-b border-slate-200 space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                                <span>Office File Inventory</span>
+                                <span id="recordBadge" class="text-xs px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-700">-- Records</span>
+                            </h2>
+                            <p class="text-xs text-slate-500 mt-0.5">Browse, search, edit, classify, and issue document records</p>
+                        </div>
+
+                        <!-- Quick Filter Tabs -->
+                        <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg text-xs font-semibold">
+                            <button onclick="setStatusFilter('')" id="filterTabAll" class="px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-xs transition">All</button>
+                            <button onclick="setStatusFilter('AVAILABLE')" id="filterTabAvailable" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition">Available</button>
+                            <button onclick="setStatusFilter('CHECKED_OUT')" id="filterTabCirculating" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition">Circulating</button>
+                            <button onclick="toggleFilterClassified()" id="filterTabClassified" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-rose-600 transition flex items-center gap-1">
+                                <span>🔒 Classified</span>
+                            </button>
+                            <button onclick="toggleFilterOverdue()" id="filterTabOverdue" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-rose-600 transition flex items-center gap-1">
+                                <span>⏰ Overdue</span>
+                            </button>
+                        </div>
+
+                        <!-- Export: CSV + printable report (uses current filters) -->
+                        <div class="flex items-center gap-2">
+                            <button onclick="exportRegistryCSV()" title="Download the current filtered list as CSV" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-600 hover:text-slate-900 font-semibold text-xs flex items-center gap-1.5 transition cursor-pointer">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                CSV
+                            </button>
+                            <button onclick="printRegistryReport()" title="Open a printable inventory report" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-600 hover:text-slate-900 font-semibold text-xs flex items-center gap-1.5 transition cursor-pointer">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                                </svg>
+                                Print
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Inputs Row -->
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 pt-1">
+                        <!-- Search Box -->
+                        <div class="sm:col-span-6 relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                            </div>
+                            <input type="text" id="searchInput" oninput="debounceLoadFiles()" placeholder="Search by code, title, or shelf location..." class="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-slate-50/50">
+                        </div>
+
+                        <!-- Category Filter -->
+                        <div class="sm:col-span-3">
+                            <select id="filterCategory" onchange="filesPage = 1; loadFiles()" class="w-full py-2 px-2.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white">
+                                <option value="">All Departments</option>
+                                <option value="Finance & Accounting">Finance & Accounting</option>
+                                <option value="Human Resources">Human Resources</option>
+                                <option value="Legal & Contracts">Legal & Contracts</option>
+                                <option value="Administration">Administration</option>
+                                <option value="Operations & Projects">Operations & Projects</option>
+                            </select>
+                        </div>
+
+                        <!-- Format Type Filter -->
+                        <div class="sm:col-span-3">
+                            <select id="filterType" onchange="filesPage = 1; loadFiles()" class="w-full py-2 px-2.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white">
+                                <option value="">All Formats</option>
+                                <option value="PHYSICAL">Physical Only</option>
+                                <option value="DIGITAL">Digital Only</option>
+                                <option value="HYBRID">Hybrid</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table Content Container (Full Width) -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[760px]">
+                        <thead>
+                            <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                <th class="py-3 px-4">Code & QR</th>
+                                <th class="py-3 px-3">Title & Information</th>
+                                <th class="py-3 px-3">Department</th>
+                                <th class="py-3 px-3">Storage Location</th>
+                                <th class="py-3 px-2 text-center">Security</th>
+                                <th class="py-3 px-3">Status</th>
+                                <th class="py-3 px-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fileTableBody" class="divide-y divide-slate-100 text-xs">
+                            <!-- Table Rows injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Registry Pagination (page numbers) -->
+                <div id="filesPager" class="hidden"></div>
+
+                <!-- Empty State -->
+                <div id="emptyState" class="hidden p-12 text-center">
+                    <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-3">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-sm font-semibold text-slate-800">No matching documents found</h3>
+                    <p class="text-xs text-slate-500 mt-1 max-w-sm mx-auto">Try clearing search filters or click "Register Document" to add new records.</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB PANE 3: CIRCULATION TERMINAL (Focused Desk Interface) -->
+        <!-- ========================================================================= -->
+        <div id="tabPane-circulation" class="tab-pane hidden space-y-6">
+            
+            <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                
+                <!-- Left: Live Camera QR Scanner (5 cols) -->
+                <div class="md:col-span-5 bg-white rounded-xl border border-slate-200/80 shadow-sm p-5 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
+                                <svg class="w-4 h-4 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                                </svg>
+                                Camera Barcode Scanner
+                            </h3>
+                            <p class="text-[11px] text-slate-500">Hold QR code or barcode up to camera</p>
+                        </div>
+                        <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> Active
+                        </span>
+                    </div>
+
+                    <!-- Camera Box -->
+                    <div class="border border-slate-200 rounded-lg overflow-hidden bg-slate-50 relative">
+                        <div id="reader" class="w-full"></div>
+                        <div class="p-2.5 bg-white border-t border-slate-200 flex items-center justify-between text-xs">
+                            <span class="text-slate-500 text-[11px] flex items-center gap-1">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Scanner Ready
+                            </span>
+                            <button type="button" onclick="resetScannerCamera()" class="text-slate-600 hover:text-slate-900 font-semibold text-[11px] flex items-center gap-1 px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 transition">
+                                <span>🔄</span> Reset Camera
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-3 rounded-lg bg-sky-50 text-sky-800 text-[11px] border border-sky-100 space-y-1">
+                        <div class="font-bold flex items-center gap-1">💡 Pro-Tip</div>
+                        <p class="text-slate-600">The scanner automatically reads both physical barcode tags and mobile web links!</p>
+                    </div>
+                </div>
+
+                <!-- Right: Issue & Return Desk Controls (7 cols) -->
+                <div class="md:col-span-7 bg-white rounded-xl border border-slate-200/80 shadow-sm p-6 space-y-5">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
+                            <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                            </svg>
+                            Circulation Desk Operations
+                        </h3>
+                        <p class="text-xs text-slate-500">Execute custody transfers and record staff transactions</p>
+                    </div>
+
+                    <div class="space-y-3.5">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Target Document Code *</label>
+                            <div class="relative">
+                                <input type="text" id="actionCode" placeholder="e.g. FIN-2026-104" class="w-full p-2.5 pl-8 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white uppercase font-bold text-slate-800">
+                                <span class="absolute left-2.5 top-2.5 text-slate-400 text-sm">#</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Staff Member Name *</label>
+                            <input type="text" id="actionUser" placeholder="e.g. Officer Jane Doe" class="w-full p-2.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">Borrowed By <span class="text-slate-400 font-normal">(check-out)</span></label>
+                                <input type="text" id="actionBorrower" placeholder="e.g. Accounts Dept. — M. Reyes" class="w-full p-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1">Due Date <span class="text-slate-400 font-normal">(check-out)</span></label>
+                                <input type="date" id="actionDueDate" class="w-full p-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white text-slate-700">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">Purpose / Notes <span class="text-slate-400 font-normal">(Optional)</span></label>
+                            <input type="text" id="actionNotes" placeholder="e.g. Q3 quarterly audit inspection in room 4" class="w-full p-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white">
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="grid grid-cols-2 gap-3 pt-2">
+                            <button onclick="handleCirculation('CHECK_OUT')" class="w-full py-3 px-4 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white rounded-xl font-bold text-xs shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                                </svg>
+                                Check Out (Issue)
+                            </button>
+                            <button onclick="handleCirculation('CHECK_IN')" class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                                </svg>
+                                Check In (Return)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Last Transaction Feedback Card -->
+                    <div id="lastActionCard" class="hidden p-3.5 rounded-xl border border-emerald-200 bg-emerald-50/60 text-xs text-emerald-900 space-y-1">
+                        <div class="font-bold flex items-center gap-1.5">
+                            <span class="text-emerald-600">✓</span>
+                            <span>Operation Confirmed</span>
+                        </div>
+                        <p id="lastActionText" class="text-slate-700 text-[11px]"></p>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB PANE 4: AUDIT HISTORY & ACTIVITY LOGS -->
+        <!-- ========================================================================= -->
+        <div id="tabPane-audit" class="tab-pane hidden space-y-4">
+            
+            <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <!-- Audit Header & Filters -->
+                <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                            <span>Chain of Custody & Audit Trail</span>
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Chronological record of registrations, check-ins, check-outs, and security classification changes</p>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <select id="logActionFilter" onchange="logsPage = 1; filterLogs()" class="py-1.5 px-3 text-xs border border-slate-300 rounded-lg bg-white">
+                            <option value="">All Actions</option>
+                            <option value="CHECK_OUT">Check Outs Only</option>
+                            <option value="CHECK_IN">Check Ins Only</option>
+                            <option value="REGISTER">Registrations</option>
+                            <option value="UPDATE">Updates</option>
+                            <option value="RESTRICT">Classifications</option>
+                        </select>
+                        <button onclick="loadLogs()" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-1 transition">
+                            <span>🔄</span> Refresh
+                        </button>
+                        <button onclick="exportAuditCSV()" title="Download the filtered log as CSV" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-600 hover:text-slate-900 font-semibold text-xs flex items-center gap-1 transition cursor-pointer">
+                            <span>⬇</span> CSV
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Audit Table (Full Width) -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse min-w-[700px]">
+                        <thead>
+                            <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                <th class="py-3 px-4">Date & Time</th>
+                                <th class="py-3 px-3">Action</th>
+                                <th class="py-3 px-3">Document</th>
+                                <th class="py-3 px-3">Department</th>
+                                <th class="py-3 px-3">Operating Staff</th>
+                                <th class="py-3 px-4">Notes / Operational Context</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditTableBody" class="divide-y divide-slate-100 text-xs">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Audit Pagination (page numbers) -->
+                <div id="logsPager" class="hidden"></div>
+
+                <!-- Empty state for logs -->
+                <div id="logsEmptyState" class="hidden p-12 text-center text-slate-400 text-xs">
+                    No activity logs recorded matching criteria.
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ========================================================================= -->
+        <!-- TAB PANE 5: OPTIONS & PREFERENCES -->
+        <!-- ========================================================================= -->
+        <div id="tabPane-options" class="tab-pane hidden space-y-6">
+            <section class="max-w-3xl bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-6">
+                <header class="space-y-1">
+                    <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                        <svg class="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                        Display Options
+                    </h2>
+                    <p class="text-xs text-slate-500">Personal preferences — saved to this browser only.</p>
+                </header>
+
+                <div>
+                    <h3 class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Theme</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
+
+                        <!-- Light theme: Aurora Glass -->
+                        <button type="button" id="themeCard-aurora" onclick="setTheme('aurora')" class="theme-option bg-slate-50/50 text-left p-4 rounded-xl cursor-pointer">
+                            <div class="swatch-aurora h-16 rounded-lg flex items-end gap-1.5 p-2">
+                                <span class="h-5 flex-1 rounded bg-white/85 shadow-sm"></span>
+                                <span class="h-5 flex-1 rounded bg-white/85 shadow-sm"></span>
+                                <span class="h-5 w-5 rounded bg-white/85 shadow-sm"></span>
+                            </div>
+                            <div class="mt-3 flex items-start justify-between gap-2">
+                                <div>
+                                    <div class="text-sm font-bold text-slate-900">☀️ Light — Aurora Glass</div>
+                                    <div class="text-[11px] text-slate-500 mt-0.5">Gradient canvas with frosted-glass panels</div>
+                                </div>
+                                <span class="theme-check" aria-hidden="true">✓</span>
+                            </div>
+                        </button>
+
+                        <!-- Dark theme: Graphite Pro -->
+                        <button type="button" id="themeCard-graphite" onclick="setTheme('graphite')" class="theme-option bg-slate-50/50 text-left p-4 rounded-xl cursor-pointer">
+                            <div class="swatch-graphite h-16 rounded-lg flex items-end gap-1.5 p-2">
+                                <span class="h-5 flex-1 rounded bg-slate-700 shadow-sm"></span>
+                                <span class="h-5 flex-1 rounded bg-slate-700 shadow-sm"></span>
+                                <span class="h-5 w-5 rounded bg-slate-700 shadow-sm"></span>
+                            </div>
+                            <div class="mt-3 flex items-start justify-between gap-2">
+                                <div>
+                                    <div class="text-sm font-bold text-slate-900">🌙 Dark — Graphite Pro</div>
+                                    <div class="text-[11px] text-slate-500 mt-0.5">Deep navy canvas with glowing accents</div>
+                                </div>
+                                <span class="theme-check" aria-hidden="true">✓</span>
+                            </div>
+                        </button>
+
+                    </div>
+                    <p class="text-[11px] text-slate-400 mt-3">The theme applies instantly across the whole app and persists for future visits.</p>
+                </div>
+            </section>
+
+            <!-- 🛟 Data Safety: backup & restore -->
+            <section class="max-w-3xl bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-5">
+                <header class="space-y-1">
+                    <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                        </svg>
+                        Data Safety
+                    </h2>
+                    <p class="text-xs text-slate-500">Download a full snapshot of the registry, audit trail, and accounts — or restore one.</p>
+                </header>
+
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="downloadBackup()" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5 cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        Download Backup (.db)
+                    </button>
+                    <button onclick="document.getElementById('restoreInput').click()" class="px-4 py-2 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        Restore Backup…
+                    </button>
+                    <input type="file" id="restoreInput" accept=".db,application/octet-stream" class="hidden" onchange="restoreBackup(this)">
+                </div>
+
+                <p class="text-[11px] text-slate-400">Restoring <b class="text-slate-500">replaces all current data</b> with the uploaded file. A safety copy of the database you are replacing is kept on the server, and everyone will be signed out to log in again.</p>
+            </section>
+
+            <!-- 🔑 Account Security -->
+            <section class="max-w-3xl bg-white p-6 rounded-xl border border-slate-200/80 shadow-sm space-y-5">
+                <header class="space-y-1">
+                    <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                        <svg class="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                        </svg>
+                        Account Security
+                    </h2>
+                    <p class="text-xs text-slate-500">Change your own password. Administrators can reset anyone’s password or Quick-PIN from <b>Manage Staff</b>.</p>
+                </header>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl">
+                    <div>
+                        <label for="curPw" class="block text-xs font-semibold text-slate-600 mb-1">Current Password</label>
+                        <input type="password" id="curPw" autocomplete="current-password" class="w-full p-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500">
+                    </div>
+                    <div>
+                        <label for="newPw" class="block text-xs font-semibold text-slate-600 mb-1">New Password</label>
+                        <input type="password" id="newPw" autocomplete="new-password" class="w-full p-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500">
+                    </div>
+                    <div>
+                        <label for="cfmPw" class="block text-xs font-semibold text-slate-600 mb-1">Confirm New</label>
+                        <input type="password" id="cfmPw" autocomplete="new-password" class="w-full p-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500">
+                    </div>
+                </div>
+
+                <div class="flex justify-end">
+                    <button onclick="changeMyPassword()" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold shadow-sm transition cursor-pointer">Update Password</button>
+                </div>
+            </section>
+        </div>
+
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 1: REGISTER / EDIT DOCUMENT -->
+    <!-- ========================================================================= -->
+    <div id="fileModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <div>
+                    <h3 id="modalTitle" class="text-base font-bold text-slate-900">Register New Document</h3>
+                    <p class="text-xs text-slate-500">Add metadata to create a printable barcode tag</p>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Form -->
+            <form id="fileForm" onsubmit="event.preventDefault(); submitFileForm();" class="p-6 space-y-3.5 text-xs">
+                <input type="hidden" id="formFileId">
+
+                <!-- File Code & Auto-generate Button -->
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Document Identifier (Code) *</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="formCode" required placeholder="e.g. DOC-2026-001" class="flex-1 p-2.5 font-mono border border-slate-300 rounded-lg uppercase font-bold text-slate-800">
+                        <button type="button" onclick="autoGenerateCode()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold whitespace-nowrap">
+                            ⚡ Auto Code
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Title -->
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Document Title / Subject *</label>
+                    <input type="text" id="formTitleInput" required placeholder="e.g. Q3 Strategic Operations Report" class="w-full p-2.5 border border-slate-300 rounded-lg">
+                </div>
+
+                <!-- Category & Type Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Category / Department *</label>
+                        <select id="formCategory" required class="w-full p-2.5 border border-slate-300 rounded-lg bg-white">
+                            <option value="" disabled selected>Select Department...</option>
+                            <option value="Finance & Accounting">Finance & Accounting</option>
+                            <option value="Human Resources">Human Resources</option>
+                            <option value="Legal & Contracts">Legal & Contracts</option>
+                            <option value="Administration">Administration</option>
+                            <option value="Operations & Projects">Operations & Projects</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Media Format *</label>
+                        <select id="formType" onchange="onFormatChange()" required class="w-full p-2.5 border border-slate-300 rounded-lg bg-white">
+                            <option value="PHYSICAL">Physical Document</option>
+                            <option value="DIGITAL">Digital Only</option>
+                            <option value="HYBRID">Hybrid (Both)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Format Helper Hint Banner -->
+                <div id="typeHint" class="p-2.5 rounded-lg bg-sky-50 text-sky-800 text-[11px] font-medium border border-sky-100 flex items-start gap-1.5">
+                    <span>💡</span>
+                    <span id="typeHintText">Physical Document: Generates a barcode sticker for physical folder / shelf tracking.</span>
+                </div>
+
+                <!-- Location & Digital Link -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Physical Location</label>
+                        <select id="formLocation" class="w-full p-2.5 border border-slate-300 rounded-lg bg-white">
+                            <option value="">None / Unassigned</option>
+                            <option value="Archive Room - Cabinet A">Archive Room - Cabinet A</option>
+                            <option value="Archive Room - Cabinet B">Archive Room - Cabinet B</option>
+                            <option value="Main Office - Shelf 1">Main Office - Shelf 1</option>
+                            <option value="HR Office - Safe Lock">HR Office - Safe Lock</option>
+                            <option value="Cloud Storage / Server">Cloud Storage / Server</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Digital Reference / Link</label>
+                        <input type="text" id="formDigitalPath" placeholder="/docs/2026/report.pdf" class="w-full p-2.5 border border-slate-300 rounded-lg">
+                    </div>
+                </div>
+
+                <!-- Classified Security Checkbox -->
+                <div class="pt-1">
+                    <label class="flex items-center space-x-2.5 p-3 rounded-xl border border-slate-200 bg-rose-50/40 hover:bg-rose-50 cursor-pointer transition">
+                        <input type="checkbox" id="formClassified" class="w-4 h-4 text-rose-600 rounded border-slate-300 focus:ring-rose-500">
+                        <div>
+                            <span class="font-bold text-slate-900 flex items-center gap-1">🔒 Mark as High Security / Classified</span>
+                            <p class="text-[11px] text-slate-500 font-normal">Restricts deletion behind double-code verification safeguards</p>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Staff Recorder -->
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Operating Staff Name</label>
+                    <input type="text" id="formStaffName" placeholder="Staff Name" value="Records Officer" class="w-full p-2.5 border border-slate-300 rounded-lg">
+                </div>
+
+                <!-- Modal Actions -->
+                <div class="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-semibold">Cancel</button>
+                    <button type="submit" id="modalSubmitBtn" class="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg shadow-sm cursor-pointer">Save & Generate QR</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 2: PRINTABLE QR CODE BADGE -->
+    <!-- ========================================================================= -->
+    <div id="qrModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-200">
+            <div class="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50 no-print">
+                <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                    </svg>
+                    Printable Document Tag
+                </span>
+                <button onclick="closeQrModal()" class="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <!-- Print Badge Area -->
+            <div id="printBadgeArea" class="p-6 text-center space-y-3">
+                <!-- Mode Selector for Digital & Hybrid files -->
+                <div id="qrModeSelector" class="flex justify-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-semibold no-print mb-1 hidden">
+                    <button type="button" id="qrBtnMobile" onclick="switchQrMode('MOBILE')" class="px-2.5 py-1 rounded-md bg-white text-sky-800 shadow-xs">📱 Phone Quick-Open</button>
+                    <button type="button" id="qrBtnTerminal" onclick="switchQrMode('TERMINAL')" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-800">🏷️ Desk Barcode</button>
+                </div>
+
+                <div class="border-2 border-dashed border-slate-300 p-3.5 rounded-xl inline-block bg-white shadow-xs">
+                    <div id="qrCodeContainer" class="flex justify-center"></div>
+                </div>
+
+                <div class="space-y-1">
+                    <div>
+                        <span id="badgeTypeTag" class="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full inline-block bg-blue-50 text-blue-700 border border-blue-200">Physical Tag</span>
+                    </div>
+                    <div id="badgeCode" class="text-base font-mono font-extrabold text-slate-900 tracking-wider">DOC-0000</div>
+                    <div id="badgeTitle" class="text-xs font-semibold text-slate-800 line-clamp-2">Document Title</div>
+                    <div id="badgeCategory" class="text-[11px] text-slate-500 font-medium">Department</div>
+                    <div id="badgeLocation" class="text-[10px] text-slate-400">Shelf A</div>
+                    <div id="badgeEncodedTarget" class="text-[9px] text-slate-400 font-mono truncate max-w-[240px] mx-auto pt-1 border-t border-slate-100"></div>
+                </div>
+            </div>
+
+            <!-- Print Actions -->
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex gap-2 no-print">
+                <button onclick="closeQrModal()" class="w-1/2 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-lg">Close</button>
+                <button onclick="window.print()" class="w-1/2 py-2 text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white rounded-lg flex items-center justify-center gap-1.5 shadow-sm cursor-pointer">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                    </svg>
+                    Print Tag
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 3: LOGIN MODAL -->
+    <!-- ========================================================================= -->
+    <div id="loginModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <div>
+                    <h3 id="loginModalTitle" class="text-base font-bold text-slate-900">Admin Login</h3>
+                    <p class="text-xs text-slate-500">Access administrative controls and document management</p>
+                </div>
+                <button onclick="closeLoginModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Form -->
+            <form id="loginForm" onsubmit="event.preventDefault(); handleLogin();" class="p-6 space-y-4 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Username *</label>
+                    <div class="relative">
+                        <input type="text" id="loginUsername" required placeholder="e.g. admin" class="w-full p-2.5 pl-9 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white">
+                        <span class="absolute left-2.5 top-2.5 text-slate-400 text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14c-4.423 0-8 2.239-8 5v2h16v-2c0-2.761-3.577-5-8-5z"></path>
+                            </svg>
+                        </span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Password *</label>
+                    <div class="relative">
+                        <input type="password" id="loginPassword" required placeholder="Enter your password" class="w-full p-2.5 pl-9 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white">
+                        <span class="absolute left-2.5 top-2.5 text-slate-400 text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                            </svg>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Quick-PIN Option (for circulation desk) -->
+                <div class="pt-2 border-t border-slate-100">
+                    <button type="button" onclick="toggleLoginMode()" id="toggleLoginModeBtn" class="text-xs text-sky-600 hover:text-sky-800 font-semibold">
+                        Switch to Quick-PIN →
+                    </button>
+                </div>
+
+                <div id="loginPinSection" class="hidden space-y-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">Quick-PIN Code *</label>
+                        <input type="text" id="loginPinCode" maxlength="4" placeholder="e.g. 1234" class="w-full p-2.5 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white text-center tracking-widest">
+                        <p class="text-[10px] text-slate-500 mt-1">For circulation desk quick access</p>
+                    </div>
+                </div>
+
+                <!-- Modal Actions -->
+                <div class="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                    <button type="button" onclick="closeLoginModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-semibold">Cancel</button>
+                    <button type="submit" id="loginSubmitBtn" class="px-5 py-2 bg-slate-700 hover:bg-slate-800 text-white font-bold rounded-lg shadow-sm cursor-pointer">Login</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- MODAL 4: STAFF MANAGEMENT (Admin Only) -->
+    <!-- ========================================================================= -->
+    <div id="staffModal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden border border-slate-200">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+                <div>
+                    <h3 class="text-base font-bold text-slate-900">Staff Management</h3>
+                    <p class="text-xs text-slate-500">Manage user accounts, roles, and Quick-PINs</p>
+                </div>
+                <button onclick="closeStaffModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6 space-y-4">
+                <!-- Add New Staff Form -->
+                <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200">
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">Add New Staff Member</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Full Name *</label>
+                            <input type="text" id="staffFullName" placeholder="e.g. John Smith" class="w-full p-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Username *</label>
+                            <input type="text" id="staffUsername" placeholder="e.g. jsmith" class="w-full p-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Password *</label>
+                            <input type="password" id="staffPassword" placeholder="Password" class="w-full p-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Quick-PIN</label>
+                            <input type="text" id="staffPinCode" maxlength="4" placeholder="e.g. 1234" class="w-full p-2 text-xs font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 text-center tracking-widest">
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">Role</label>
+                            <select id="staffRole" class="w-full p-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 bg-white">
+                                <option value="STAFF">Staff (Circulation Desk)</option>
+                                <option value="ADMIN">Administrator (Full Access)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="pt-3 flex justify-end">
+                        <button onclick="addStaffMember()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition">
+                            Add Staff Member
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Existing Staff List -->
+                <div>
+                    <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">Existing Staff Members</h4>
+                    <div id="staffList" class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50/80 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                    <th class="py-2 px-3">Name</th>
+                                    <th class="py-2 px-3">Username</th>
+                                    <th class="py-2 px-3">Role</th>
+                                    <th class="py-2 px-3">Quick-PIN</th>
+                                    <th class="py-2 px-3 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="staffTableBody" class="divide-y divide-slate-100 text-xs">
+                                <!-- Injected dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button onclick="closeStaffModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg font-semibold text-xs">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Classified Check-Out: Quick-PIN Confirmation Modal (Two-Step Verification) -->
+    <div id="pinConfirmModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 border border-rose-200">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-xl shrink-0">🔒</div>
+                <div>
+                    <h3 id="pinConfirmTitle" class="font-bold text-slate-900 text-sm">Classified Check-Out</h3>
+                    <p class="text-[11px] text-slate-500">Two-step verification required</p>
+                </div>
+            </div>
+            <div class="p-3 bg-rose-50 border border-rose-200 rounded-xl">
+                <span id="pinConfirmFile" class="text-xs font-bold text-rose-700 font-mono break-all"></span>
+                <p id="pinConfirmMsg" class="text-[10px] text-rose-500 mt-1">This document is classified. Enter your Quick-PIN to authorize its release.</p>
+            </div>
+            <div>
+                <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wide">Quick-PIN Confirmation</label>
+                <input id="pinConfirmInput" type="password" inputmode="numeric" maxlength="6" placeholder="••••" class="w-full mt-1 p-3 text-center text-lg font-mono tracking-[0.4em] border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-rose-500" onkeydown="if(event.key==='Enter')confirmPinAction()">
+                <p id="pinConfirmErr" class="hidden text-[11px] font-semibold text-rose-600 mt-1.5"></p>
+            </div>
+            <div class="flex gap-2 pt-1">
+                <button onclick="closePinConfirmModal()" class="flex-1 py-2.5 rounded-xl border border-slate-300 text-slate-600 text-xs font-bold hover:bg-slate-50 transition cursor-pointer">Cancel</button>
+                <button id="pinConfirmBtn" onclick="confirmPinAction()" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm transition cursor-pointer">Confirm &amp; Check-Out</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toastContainer" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+    <!-- ========================================================================= -->
+    <!-- APPLICATION LOGIC -->
+    <!-- ========================================================================= -->
+    <script>
+        let allFiles = [];
+        let allLogs = [];
+        let html5QrcodeScanner = null;
+        let activeStatusFilter = '';
+        let activeClassifiedFilter = '';
+        let activeOverdueFilter = '';
+
+        // --- Pagination state (client-side page numbers below long tables) ---
+        const REGISTRY_PAGE_SIZE = 10;
+        const AUDIT_PAGE_SIZE = 15;
+        let filesPage = 1;
+        let logsPage = 1;
+        let activeTab = 'dashboard';
+        let debounceTimer = null;
+
+        // --- AUTH HELPERS: attach the session token to every protected API call ---
+        let currentPinCode = null;
+
+        function hasFullSession() {
+            return !!localStorage.getItem('authToken');
+        }
+
+        function isAdminSession() {
+            return hasFullSession() && currentUser && currentUser.role === 'ADMIN';
+        }
+
+        function authHeaders(extra = {}) {
+            const token = localStorage.getItem('authToken');
+            return token ? { 'Authorization': `Bearer ${token}`, ...extra } : { ...extra };
+        }
+
+        // Wrapper around fetch() that attaches the JWT and centralizes 401 handling
+        async function apiFetch(url, options = {}) {
+            const res = await fetch(url, { ...options, headers: authHeaders(options.headers || {}) });
+
+            if (res.status === 401) {
+                if (hasFullSession()) {
+                    // Stored token is no longer valid (expired OR a newer login
+                    // superseded it) — force a clean logout
+                    let msg = 'Session expired. Please log in again.';
+                    try {
+                        const data = await res.clone().json();
+                        if (data && data.code === 'SESSION_SUPERSEDED' && data.error) msg = data.error;
+                    } catch (e) { /* keep default message */ }
+                    currentUser = null;
+                    currentPinCode = null;
+                    localStorage.removeItem('authToken');
+                    updateAuthUI();
+                    showGuestOverlay();
+                    showToast(msg, 'error');
+                } else if (currentUser) {
+                    // Quick-PIN sessions only authorize circulation desk actions
+                    showToast('Quick-PIN access covers the Circulation Desk only. Please log in for full access.', 'error');
+                } else {
+                    showGuestOverlay();
+                }
+            }
+            return res;
+        }
+
+        // --- TAB NAVIGATION SWITCHER ---
+        function switchTab(tabId) {
+            activeTab = tabId;
+
+            // 1. Hide all tab panes
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+
+            // 2. Show selected pane
+            const targetPane = document.getElementById(`tabPane-${tabId}`);
+            if (targetPane) targetPane.classList.remove('hidden');
+
+            // 3. Update tab button highlights
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn px-4 py-3.5 text-xs sm:text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 flex items-center gap-2 whitespace-nowrap transition cursor-pointer';
+            });
+            const activeBtn = document.getElementById(`tabBtn-${tabId}`);
+            if (activeBtn) {
+                activeBtn.className = 'tab-btn px-4 py-3.5 text-xs sm:text-sm font-bold border-b-2 border-sky-600 text-sky-600 flex items-center gap-2 whitespace-nowrap transition cursor-pointer';
+            }
+
+            // 4. Tab specific lifecycle triggers
+            if (tabId === 'circulation') {
+                initScanner();
+            } else if (tabId === 'audit') {
+                loadLogs();
+            } else if (tabId === 'registry') {
+                loadFiles();
+            }
+        }
+
+        // --- THEME SWITCHER (Options tab): Aurora Glass (light) / Graphite Pro (dark) ---
+        function setTheme(theme) {
+            const value = (theme === 'graphite') ? 'graphite' : 'aurora';
+            document.documentElement.setAttribute('data-theme', value);
+            try { localStorage.setItem('uiTheme', value); } catch (e) { /* private mode: keep in-memory only */ }
+            // Sync the active highlight on the theme picker cards
+            document.querySelectorAll('.theme-option').forEach(el => {
+                el.classList.toggle('active', el.id === 'themeCard-' + value);
+            });
+        }
+
+        // --- DASHBOARD METRICS ---
+        async function fetchDashboardStats() {
+            try {
+                const res = await apiFetch('/api/dashboard/stats');
+                if (!res.ok) throw new Error('Failed to load stats');
+                const stats = await res.json();
+
+                // KPI Stat Cards
+                document.getElementById('statTotal').innerText = stats.total_files || 0;
+                document.getElementById('statAvailable').innerText = stats.available_files || 0;
+                document.getElementById('statCheckedOut').innerText = stats.checked_out_files || 0;
+                document.getElementById('statClassified').innerText = stats.classified_files || 0;
+                const statOverdue = document.getElementById('statOverdue');
+                if (statOverdue) statOverdue.innerText = stats.overdue_files || 0;
+                document.getElementById('statVelocity').innerText = stats.today_actions || 0;
+
+                // Tab Badge indicators
+                document.getElementById('tabBadgeRegistry').innerText = stats.total_files || 0;
+                const circBadge = document.getElementById('tabBadgeCirculation');
+                if (stats.checked_out_files > 0) {
+                    circBadge.innerText = `${stats.checked_out_files} active`;
+                    circBadge.classList.remove('hidden');
+                } else {
+                    circBadge.classList.add('hidden');
+                }
+
+                // Department Distribution Bar
+                renderDistribution(stats.category_distribution, stats.total_files);
+
+                // Media Format Breakdown
+                const types = stats.type_distribution || {};
+                document.getElementById('badgePhysical').innerText = `Physical: ${types.PHYSICAL || 0}`;
+                document.getElementById('badgeDigital').innerText = `Digital: ${types.DIGITAL || 0}`;
+                document.getElementById('badgeHybrid').innerText = `Hybrid: ${types.HYBRID || 0}`;
+            } catch (err) {
+                console.error('Stats Error:', err);
+            }
+        }
+
+        // --- DATA LOADING FUNCTIONS (Only call when authenticated) ---
+        async function loadDashboardData() {
+            try {
+                // Load all dashboard data in parallel for better performance
+                await Promise.all([
+                    fetchDashboardStats(),
+                    loadFiles(),
+                    loadLogs()
+                ]);
+            } catch (err) {
+                console.error('Failed to load dashboard data:', err);
+                showToast('Failed to load dashboard data', 'error');
+            }
+        }
+
+        const categoryPalette = ['#0284c7', '#059669', '#d97706', '#9333ea', '#e11d48', '#475569'];
+
+        function renderDistribution(categories = [], total = 0) {
+            const bar = document.getElementById('categoryDistBar');
+            const legend = document.getElementById('categoryLegend');
+            const summaryText = document.getElementById('categorySummaryText');
+
+            bar.innerHTML = '';
+            legend.innerHTML = '';
+
+            if (!categories || categories.length === 0 || total === 0) {
+                bar.innerHTML = '<div class="w-full bg-slate-200"></div>';
+                summaryText.innerText = 'No records in database';
+                return;
+            }
+
+            summaryText.innerText = `${categories.length} active departments (${total} total files)`;
+
+            categories.forEach((cat, idx) => {
+                const color = categoryPalette[idx % categoryPalette.length];
+                const pct = ((cat.count / total) * 100).toFixed(1);
+
+                // Bar segment
+                const seg = document.createElement('div');
+                seg.style.width = `${pct}%`;
+                seg.style.backgroundColor = color;
+                seg.title = `${cat.category}: ${cat.count} files (${pct}%)`;
+                bar.appendChild(seg);
+
+                // Legend item
+                const leg = document.createElement('span');
+                leg.className = 'flex items-center gap-1.5 text-[11px] text-slate-600 font-medium';
+                leg.innerHTML = `<span class="w-2 h-2 rounded-full" style="background-color: ${color}"></span> ${cat.category} (${cat.count})`;
+                legend.appendChild(leg);
+            });
+        }
+
+        // --- FILE REGISTRY TABLE LOADING & FILTERS ---
+        function debounceLoadFiles() {
+            filesPage = 1; // a new search starts back at page 1
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(loadFiles, 200);
+        }
+
+        async function loadFiles() {
+            const search = document.getElementById('searchInput').value;
+            const category = document.getElementById('filterCategory').value;
+            const type = document.getElementById('filterType').value;
+
+            const params = new URLSearchParams();
+            if (search) params.append('search', search);
+            if (category) params.append('category', category);
+            if (type) params.append('type', type);
+            if (activeStatusFilter) params.append('status', activeStatusFilter);
+            if (activeClassifiedFilter !== '') params.append('classified', activeClassifiedFilter);
+            if (activeOverdueFilter === '1') params.append('overdue', '1');
+
+            try {
+                const res = await apiFetch(`/api/files?${params.toString()}`);
+                const data = await res.json();
+                allFiles = Array.isArray(data) ? data : [];
+                renderTable(allFiles);
+            } catch (err) {
+                console.error('File load error:', err);
+                showToast('Failed to load files', 'error');
+            }
+        }
+
+        function renderTable(files) {
+            const tbody = document.getElementById('fileTableBody');
+            const emptyState = document.getElementById('emptyState');
+            const recordBadge = document.getElementById('recordBadge');
+
+            recordBadge.innerText = `${files.length} Records`;
+
+            if (!files || files.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                renderPager('filesPager', 0, filesPage, REGISTRY_PAGE_SIZE, 'setFilesPage');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            // Show only the current page of rows (page numbers render below the table)
+            const totalPages = Math.max(1, Math.ceil(files.length / REGISTRY_PAGE_SIZE));
+            if (filesPage > totalPages) filesPage = totalPages; // clamp after deletions
+            if (filesPage < 1) filesPage = 1;
+            const pageRows = files.slice((filesPage - 1) * REGISTRY_PAGE_SIZE, filesPage * REGISTRY_PAGE_SIZE);
+            renderPager('filesPager', files.length, filesPage, REGISTRY_PAGE_SIZE, 'setFilesPage');
+            const canManage = isAdminSession();
+            tbody.innerHTML = pageRows.map(f => {
+                const isAvail = f.status === 'AVAILABLE';
+                const odDays = overdueDays(f);
+                const statusBadge = isAvail
+                    ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Available</span>`
+                    : odDays > 0
+                    ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-200"><span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Overdue ${odDays}d</span>`
+                    : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold border border-amber-200"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Checked Out</span>`;
+
+                const dueLine = (!isAvail && (f.due_date || f.borrower_name))
+                    ? `<div class="text-[10px] mt-1 ${odDays > 0 ? 'text-rose-700 font-bold' : 'text-slate-500'}">${f.due_date ? 'Due ' + f.due_date : ''}${f.due_date && f.borrower_name ? ' · ' : ''}${f.borrower_name ? escapeHtml(f.borrower_name) : ''}</div>`
+                    : '';
+
+                const typeColor = f.type === 'PHYSICAL' ? 'bg-blue-50 text-blue-700 border-blue-200'
+                               : f.type === 'DIGITAL' ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                               : 'bg-purple-50 text-purple-700 border-purple-200';
+
+                return `
+                    <tr class="${odDays > 0 ? 'bg-rose-50/40 ' : ''}hover:bg-slate-50/80 transition group">
+                        <!-- Code & QR Trigger -->
+                        <td class="py-3 px-4">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-mono font-bold text-sky-700 bg-sky-50 px-2 py-1 rounded border border-sky-200/60">${f.file_code}</span>
+                                <button onclick="openQrModal('${f.file_code}', '${escapeHtml(f.title)}', '${f.category}', '${escapeHtml(f.physical_location || '')}', '${f.type}', '${escapeHtml(f.digital_path || '')}')" title="View & Print QR Tag" class="text-slate-400 hover:text-sky-600 p-1 rounded hover:bg-slate-100 transition">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </td>
+
+                        <!-- Title & Digital Path -->
+                        <td class="py-3 px-3">
+                            <div class="font-semibold text-slate-800">${escapeHtml(f.title)}</div>
+                            <div class="flex items-center gap-2 mt-0.5">
+                                ${f.digital_path ? `<span class="text-[11px] text-slate-400 font-mono truncate max-w-xs">${escapeHtml(f.digital_path)}</span>` : ''}
+                                ${(f.type === 'DIGITAL' || f.type === 'HYBRID' || f.digital_path) ? `
+                                    <a href="/view/${f.file_code}" target="_blank" class="inline-flex items-center gap-1 text-[11px] text-sky-600 hover:text-sky-800 font-semibold transition" title="Open Digital Document Viewer">
+                                        <span>Open File</span>
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                    </a>
+                                ` : ''}
+                            </div>
+                        </td>
+
+                        <!-- Department & Type -->
+                        <td class="py-3 px-3">
+                            <div class="text-slate-700 font-medium">${f.category || '-'}</div>
+                            <span class="inline-block mt-0.5 text-[10px] px-1.5 py-0.2 rounded border ${typeColor} font-semibold">${f.type}</span>
+                        </td>
+
+                        <!-- Physical Location -->
+                        <td class="py-3 px-3 text-slate-600 text-xs">
+                            ${f.physical_location ? `
+                                <div class="flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                    </svg>
+                                    <span>${escapeHtml(f.physical_location)}</span>
+                                </div>` : '<span class="text-slate-400">None</span>'
+                            }
+                        </td>
+
+                        <!-- Security Classification Toggle (Admin only) -->
+                        <td class="py-3 px-2 text-center">
+                            ${canManage ? `
+                                <button onclick="toggleClassify(${f.id}, ${f.is_classified || 0})" class="px-2 py-1 rounded-lg hover:bg-slate-100 transition inline-flex items-center gap-1" title="Click to toggle security classification">
+                                    ${f.is_classified === 1 
+                                        ? `<span class="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-200 flex items-center gap-1"><span class="text-xs">🔒</span> Classified</span>` 
+                                        : `<span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium hover:bg-slate-200">Public</span>`
+                                    }
+                                </button>
+                            ` : (f.is_classified === 1
+                                ? `<span class="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-200 inline-flex items-center gap-1"><span class="text-xs">🔒</span> Classified</span>`
+                                : `<span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">Public</span>`
+                            )}
+                        </td>
+
+                        <!-- Status Badge -->
+                        <td class="py-3 px-3">
+                            ${statusBadge}
+                            ${dueLine}
+                        </td>
+
+                        <!-- Quick Inline Actions -->
+                        <td class="py-3 px-4 text-right whitespace-nowrap">
+                            <div class="flex items-center justify-end space-x-1">
+                                <!-- Quick Issue / Return (Switches to Circulation Tab) -->
+                                <button onclick="quickSelectAction('${f.file_code}', '${isAvail ? 'CHECK_OUT' : 'CHECK_IN'}')" class="px-2.5 py-1 rounded font-semibold text-[11px] ${isAvail ? 'text-amber-700 hover:bg-amber-50' : 'text-emerald-700 hover:bg-emerald-50'} transition">
+                                    ${isAvail ? 'Issue →' : '← Return'}
+                                </button>
+
+                                <!-- Print custody history slip -->
+                                <button onclick="printCustodySlip(${f.id})" class="p-1 text-slate-500 hover:text-sky-600 rounded hover:bg-slate-100" title="Print Custody History Slip">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                                    </svg>
+                                </button>
+                                
+                                ${canManage ? `
+                                <!-- Edit -->
+                                <button onclick="openEditModal(${f.id})" class="p-1 text-slate-500 hover:text-sky-600 rounded hover:bg-slate-100" title="Edit Metadata">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                    </svg>
+                                </button>
+
+                                <!-- Delete with Classified Safeguard -->
+                                <button onclick="deleteFileRecord(${f.id}, '${f.file_code}', ${f.is_classified || 0})" class="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-slate-100" title="Delete Document">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                                ` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- PAGINATION: "1 2 3 …" page controls below long tables ---
+        function pagerPageList(current, totalPages) {
+            if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+            const list = [1];
+            if (current > 4) list.push('...');
+            const start = Math.max(2, current - 1);
+            const end = Math.min(totalPages - 1, current + 1);
+            for (let p = start; p <= end; p++) list.push(p);
+            if (current < totalPages - 3) list.push('...');
+            list.push(totalPages);
+            return list;
+        }
+
+        function renderPager(elId, totalItems, currentPage, pageSize, setPageFn) {
+            const el = document.getElementById(elId);
+            if (!el) return;
+            const totalPages = Math.ceil(totalItems / pageSize);
+            if (totalItems === 0 || totalPages <= 1) {
+                el.innerHTML = '';
+                el.classList.add('hidden');
+                return;
+            }
+            el.classList.remove('hidden');
+            const page = Math.min(Math.max(1, currentPage), totalPages);
+            const from = (page - 1) * pageSize + 1;
+            const to = Math.min(totalItems, page * pageSize);
+
+            const base = 'px-2.5 py-1.5 rounded-lg text-xs font-bold border transition cursor-pointer select-none leading-none';
+            const idle = 'border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900';
+            const active = 'border-sky-600 bg-sky-600 text-white shadow-sm';
+            const off = 'border-slate-200 text-slate-400 opacity-50 cursor-not-allowed';
+
+            const pages = pagerPageList(page, totalPages).map(p => {
+                if (p === '...') return `<span class="px-1 text-slate-400 select-none">…</span>`;
+                return `<button type="button" onclick="${setPageFn}(${p})"
+                    class="${base} ${p === page ? active : idle} min-w-[30px]"
+                    ${p === page ? 'aria-current="page"' : ''}>${p}</button>`;
+            }).join('');
+
+            el.innerHTML = `
+                <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-t border-slate-100">
+                    <div class="text-[11px] text-slate-500">Showing <span class="font-bold text-slate-700">${from}–${to}</span> of <span class="font-bold text-slate-700">${totalItems}</span> records</div>
+                    <div class="flex items-center gap-1">
+                        <button type="button" onclick="${setPageFn}(${page - 1})" class="${base} ${page <= 1 ? off : idle}" ${page <= 1 ? 'disabled' : ''} aria-label="Previous page">‹</button>
+                        ${pages}
+                        <button type="button" onclick="${setPageFn}(${page + 1})" class="${base} ${page >= totalPages ? off : idle}" ${page >= totalPages ? 'disabled' : ''} aria-label="Next page">›</button>
+                    </div>
+                </div>`;
+        }
+
+        function scrollToTableTop(tbodyId) {
+            const tbody = document.getElementById(tbodyId);
+            if (!tbody) return;
+            const table = tbody.closest('table') || tbody;
+            const y = table.getBoundingClientRect().top + window.scrollY - 150; // clears sticky header + tab bar
+            window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+        }
+
+        function setFilesPage(page) {
+            const totalPages = Math.max(1, Math.ceil(allFiles.length / REGISTRY_PAGE_SIZE));
+            filesPage = Math.min(Math.max(1, page), totalPages);
+            renderTable(allFiles);
+            scrollToTableTop('fileTableBody');
+        }
+
+        function setLogsPage(page) {
+            const total = getFilteredLogs().length;
+            const totalPages = Math.max(1, Math.ceil(total / AUDIT_PAGE_SIZE));
+            logsPage = Math.min(Math.max(1, page), totalPages);
+            filterLogs();
+            scrollToTableTop('auditTableBody');
+        }
+
+        // --- OVERDUE HELPERS, CSV EXPORT & PRINT REPORTS ---
+        function overdueDays(f) {
+            if (!f || f.status !== 'CHECKED_OUT' || !f.due_date) return 0;
+            const due = new Date(f.due_date + 'T00:00:00');
+            if (isNaN(due)) return 0;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const days = Math.floor((today - due) / 86400000);
+            return days > 0 ? days : 0;
+        }
+
+        function todayIso() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function csvEscape(v) {
+            const s = (v === null || v === undefined) ? '' : String(v);
+            return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+        }
+
+        function downloadCsv(filename, rows) {
+            const csv = '\uFEFF' + rows.map(r => r.map(csvEscape).join(',')).join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function exportRegistryCSV() {
+            if (!allFiles.length) return showToast('No records to export', 'error');
+            const rows = [['File Code', 'Title', 'Department', 'Format', 'Location', 'Status', 'Borrower', 'Due Date', 'Days Overdue', 'Classification', 'Created']];
+            allFiles.forEach(f => rows.push([
+                f.file_code, f.title, f.category || '', f.type, f.physical_location || '',
+                f.status, f.borrower_name || '', f.due_date || '', overdueDays(f) || '',
+                f.is_classified === 1 ? 'CLASSIFIED' : 'Public', f.created_at || ''
+            ]));
+            downloadCsv(`archivex-registry-${todayIso()}.csv`, rows);
+            showToast(`Exported ${allFiles.length} record${allFiles.length === 1 ? '' : 's'} to CSV`, 'success');
+        }
+
+        function exportAuditCSV() {
+            const logs = getFilteredLogs();
+            if (!logs.length) return showToast('No log entries to export', 'error');
+            const rows = [['Timestamp', 'File Code', 'Title', 'Action', 'User', 'Notes']];
+            logs.forEach(l => rows.push([
+                l.created_at || '', l.file_code || '', l.file_title || '', l.action, l.user_name || '', l.notes || ''
+            ]));
+            downloadCsv(`archivex-audit-${todayIso()}.csv`, rows);
+            showToast(`Exported ${logs.length} log entr${logs.length === 1 ? 'y' : 'ies'} to CSV`, 'success');
+        }
+
+        // Opens a clean print-ready window (inventory report, custody slips)
+        function openPrintWindow(title, bodyHtml) {
+            const win = window.open('', '_blank');
+            if (!win) return showToast('Pop-up blocked — allow pop-ups to print reports', 'error');
+            win.document.open();
+            win.document.write(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${title}</title>
+<style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; margin: 26px; font-size: 12px; }
+    .brand-row { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; }
+    h1 { font-size: 17px; margin: 0; }
+    .brand { font-size: 11px; font-weight: 800; letter-spacing: 1.5px; color: #0369a1; text-transform: uppercase; }
+    .meta { color: #64748b; font-size: 10.5px; margin-top: 3px; }
+    h2 { font-size: 12.5px; margin: 14px 0 6px; }
+    table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+    th, td { border: 1px solid #cbd5e1; padding: 4px 6px; text-align: left; vertical-align: top; }
+    th { background: #f1f5f9; font-size: 9.5px; text-transform: uppercase; letter-spacing: .4px; }
+    tr { page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    .mono { font-family: Consolas, 'Courier New', monospace; }
+    .od { color: #be123c; font-weight: 700; }
+    .muted { color: #64748b; }
+    .kv { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+    .kv td { border: 1px solid #cbd5e1; padding: 5px 8px; }
+    .kv td.k { background: #f8fafc; font-weight: 700; width: 150px; }
+    .custody-box { border: 1.5px solid #be123c; background: #fff1f2; padding: 8px 10px; margin: 10px 0; font-size: 11.5px; }
+    .sign-row { display: flex; gap: 36px; margin-top: 40px; }
+    .sign { flex: 1; border-top: 1px solid #334155; padding-top: 5px; text-align: center; font-size: 10.5px; color: #334155; }
+    @page { margin: 12mm; }
+</style>
+</head>
+<body>${bodyHtml}</body>
+</html>`);
+            win.document.close();
+            win.focus();
+            setTimeout(() => { try { win.print(); } catch (e) {} }, 400);
+        }
+
+        function printRegistryReport() {
+            if (!allFiles.length) return showToast('No records to print', 'error');
+            const rowsHtml = allFiles.map((f, i) => {
+                const od = overdueDays(f);
+                return `<tr>
+                    <td>${i + 1}</td>
+                    <td class="mono">${escapeHtml(f.file_code)}</td>
+                    <td>${escapeHtml(f.title)}</td>
+                    <td>${escapeHtml(f.category || '')}</td>
+                    <td>${f.type}</td>
+                    <td>${escapeHtml(f.physical_location || '')}</td>
+                    <td>${f.status === 'AVAILABLE' ? 'Available' : (od ? `<span class="od">CHECKED OUT — ${od}d OVERDUE</span>` : 'Checked Out')}</td>
+                    <td>${escapeHtml(f.borrower_name || '')}${f.due_date ? `<br><span class="${od ? 'od' : 'muted'}">due ${f.due_date}</span>` : ''}</td>
+                    <td>${f.is_classified === 1 ? '<span class="od">CLASSIFIED</span>' : 'Public'}</td>
+                </tr>`;
+            }).join('');
+
+            const filtered = activeStatusFilter || activeClassifiedFilter || activeOverdueFilter === '1';
+            openPrintWindow('ARCHIVEX — Registry Inventory Report', `
+                <div class="brand-row">
+                    <div>
+                        <div class="brand">ARCHIVEX Office File Tracker</div>
+                        <h1>Document Registry Inventory</h1>
+                        <div class="meta">Generated ${new Date().toLocaleString()} · ${allFiles.length} record${allFiles.length === 1 ? '' : 's'}${filtered ? ' (filtered view)' : ''}</div>
+                    </div>
+                    <div class="meta">Status as of ${todayIso()}</div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th><th>Code</th><th>Title</th><th>Department</th><th>Format</th><th>Location</th><th>Status</th><th>Borrower / Due</th><th>Access</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+                <div class="sign-row">
+                    <div class="sign">Prepared by</div>
+                    <div class="sign">Reviewed by</div>
+                    <div class="sign">Archivist / Records Officer</div>
+                </div>
+            `);
+        }
+
+        function printCustodySlip(fileId) {
+            const f = allFiles.find(x => x.id === fileId);
+            if (!f) return showToast('Document not loaded', 'error');
+            const od = overdueDays(f);
+            const history = (allLogs || []).filter(l => l.file_id === fileId).slice().reverse(); // oldest → newest
+
+            const histRows = history.length
+                ? history.map(l => `<tr>
+                    <td class="mono">${escapeHtml((l.created_at || '').replace('T', ' ').slice(0, 16))}</td>
+                    <td>${escapeHtml(l.action)}</td>
+                    <td>${escapeHtml(l.user_name || '')}</td>
+                    <td>${escapeHtml(l.notes || '')}</td>
+                </tr>`).join('')
+                : `<tr><td colspan="4" class="muted">No custody events recorded yet.</td></tr>`;
+
+            openPrintWindow(`ARCHIVEX — Custody Slip ${f.file_code}`, `
+                <div class="brand-row">
+                    <div>
+                        <div class="brand">ARCHIVEX Office File Tracker</div>
+                        <h1>Custody History Slip</h1>
+                        <div class="meta">Generated ${new Date().toLocaleString()}</div>
+                    </div>
+                    <div class="meta mono">${escapeHtml(f.file_code)}</div>
+                </div>
+
+                <table class="kv">
+                    <tr><td class="k">Document Code</td><td class="mono">${escapeHtml(f.file_code)}</td><td class="k">Status</td><td>${f.status === 'AVAILABLE' ? 'Available (in storage)' : (od ? `<span class="od">CHECKED OUT — ${od}d OVERDUE</span>` : 'Checked Out')}</td></tr>
+                    <tr><td class="k">Title</td><td colspan="3">${escapeHtml(f.title)}</td></tr>
+                    <tr><td class="k">Department</td><td>${escapeHtml(f.category || '')}</td><td class="k">Format</td><td>${f.type}</td></tr>
+                    <tr><td class="k">Location</td><td>${escapeHtml(f.physical_location || '—')}</td><td class="k">Access</td><td>${f.is_classified === 1 ? '<span class="od">CLASSIFIED</span>' : 'Public'}</td></tr>
+                    <tr><td class="k">Borrowed By</td><td>${escapeHtml(f.borrower_name || '—')}</td><td class="k">Due Date</td><td class="${od ? 'od' : ''}">${escapeHtml(f.due_date || '—')}</td></tr>
+                </table>
+
+                ${f.status === 'CHECKED_OUT' ? `
+                <div class="custody-box">
+                    <strong>Current custody:</strong> ${escapeHtml(f.borrower_name || 'Unspecified holder')}
+                    ${f.due_date ? ` · due back <strong>${escapeHtml(f.due_date)}</strong>${od ? ` (<span class="od">${od} day${od === 1 ? '' : 's'} late</span>)` : ''}` : ''}
+                </div>` : ''}
+
+                <h2>Custody &amp; Audit History (${history.length} event${history.length === 1 ? '' : 's'})</h2>
+                <table>
+                    <thead><tr><th style="width:130px">Date / Time</th><th style="width:90px">Action</th><th style="width:150px">By</th><th>Notes</th></tr></thead>
+                    <tbody>${histRows}</tbody>
+                </table>
+
+                <div class="sign-row">
+                    <div class="sign">Released by (Signature)</div>
+                    <div class="sign">Received by (Signature)</div>
+                    <div class="sign">Date</div>
+                </div>
+            `);
+        }
+
+        // --- FILTER TOGGLES ---
+        function setStatusFilter(status) {
+            activeStatusFilter = status;
+            filesPage = 1; // new filter starts back at page 1
+            document.getElementById('filterTabAll').className = status === '' ? 'px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-xs font-bold' : 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900';
+            document.getElementById('filterTabAvailable').className = status === 'AVAILABLE' ? 'px-2.5 py-1 rounded-md bg-white text-emerald-700 shadow-xs font-bold' : 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900';
+            document.getElementById('filterTabCirculating').className = status === 'CHECKED_OUT' ? 'px-2.5 py-1 rounded-md bg-white text-amber-700 shadow-xs font-bold' : 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900';
+            loadFiles();
+        }
+
+        function toggleFilterClassified() {
+            activeClassifiedFilter = activeClassifiedFilter === '1' ? '' : '1';
+            filesPage = 1; // new filter starts back at page 1
+            const btn = document.getElementById('filterTabClassified');
+            if (activeClassifiedFilter === '1') {
+                btn.className = 'px-2.5 py-1 rounded-md bg-rose-600 text-white shadow-xs font-bold flex items-center gap-1';
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-rose-600 flex items-center gap-1';
+            }
+            loadFiles();
+        }
+
+        function toggleFilterOverdue(silent) {
+            activeOverdueFilter = activeOverdueFilter === '1' ? '' : '1';
+            filesPage = 1; // new filter starts back at page 1
+            const btn = document.getElementById('filterTabOverdue');
+            if (activeOverdueFilter === '1') {
+                btn.className = 'px-2.5 py-1 rounded-md bg-rose-600 text-white shadow-xs font-bold flex items-center gap-1';
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-rose-600 flex items-center gap-1';
+            }
+            if (!silent) loadFiles();
+        }
+
+        // Dashboard "Overdue" card → jump straight to the filtered registry
+        function gotoOverdueFilter() {
+            if (activeOverdueFilter !== '1') toggleFilterOverdue(true);
+            switchTab('registry');
+        }
+
+        // --- CIRCULATION & SCANNER LOGIC ---
+        function initScanner() {
+            try {
+                if (html5QrcodeScanner) {
+                    html5QrcodeScanner.clear().catch(() => {});
+                }
+                html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+                    fps: 10, 
+                    qrbox: { width: 190, height: 190 },
+                    aspectRatio: 1.0
+                });
+                html5QrcodeScanner.render((decodedText) => {
+                    let code = decodedText.trim();
+                    // If QR contains universal mobile URL, extract the document code
+                    if (code.includes('/view/')) {
+                        code = code.split('/view/')[1].split(/[?#/]/)[0].trim();
+                    }
+                    document.getElementById('actionCode').value = code;
+                    showToast(`Scanned Document: ${code}`, 'info');
+                });
+            } catch (err) {
+                console.warn('Scanner init error (camera might not be accessible):', err);
+            }
+        }
+
+        function resetScannerCamera() {
+            initScanner();
+            document.getElementById('actionCode').value = '';
+            showToast('Scanner camera reset', 'info');
+        }
+
+        function quickSelectAction(code, suggestedAction) {
+            // Switch to Circulation Tab
+            switchTab('circulation');
+            document.getElementById('actionCode').value = code;
+            document.getElementById('actionUser').focus();
+            showToast(`Selected ${code} for ${suggestedAction === 'CHECK_OUT' ? 'Check-Out' : 'Return'}`, 'info');
+        }
+
+        // --- Two-step Quick-PIN confirmation modal (classified check-out & declassification) ---
+        let pendingPinAction = null;      // async (pin, showError) => ... run on confirm
+        let pinConfirmBtnLabel = 'Confirm & Check-Out';
+
+        function openPinConfirmModal(opts) {
+            // opts: { fileLabel, title, message, confirmLabel, onConfirm }
+            document.getElementById('pinConfirmTitle').innerText = opts.title || 'Classified Check-Out';
+            document.getElementById('pinConfirmFile').innerText = '🔒 ' + (opts.fileLabel || '');
+            document.getElementById('pinConfirmMsg').innerText = opts.message || 'This document is classified. Enter your Quick-PIN to authorize its release.';
+            pinConfirmBtnLabel = opts.confirmLabel || 'Confirm & Check-Out';
+            const btn = document.getElementById('pinConfirmBtn');
+            btn.disabled = false;
+            btn.innerText = pinConfirmBtnLabel;
+            document.getElementById('pinConfirmInput').value = '';
+            document.getElementById('pinConfirmErr').classList.add('hidden');
+            document.getElementById('pinConfirmModal').classList.remove('hidden');
+            pendingPinAction = opts.onConfirm || null;
+            document.getElementById('pinConfirmInput').focus();
+        }
+
+        function closePinConfirmModal() {
+            document.getElementById('pinConfirmModal').classList.add('hidden');
+            pendingPinAction = null;
+        }
+
+        function showPinConfirmError(msg) {
+            const errEl = document.getElementById('pinConfirmErr');
+            errEl.innerText = msg;
+            errEl.classList.remove('hidden');
+        }
+
+        async function confirmPinAction() {
+            const pin = document.getElementById('pinConfirmInput').value.trim();
+            if (!pin) return showPinConfirmError('Enter the Quick-PIN to continue.');
+            if (!pendingPinAction) return closePinConfirmModal();
+
+            const btn = document.getElementById('pinConfirmBtn');
+            btn.disabled = true;
+            btn.innerText = 'Verifying...';
+            try {
+                await pendingPinAction(pin, showPinConfirmError);
+            } finally {
+                if (!document.getElementById('pinConfirmModal').classList.contains('hidden')) {
+                    btn.disabled = false;
+                    btn.innerText = pinConfirmBtnLabel;
+                }
+            }
+        }
+
+        async function handleCirculation(action) {
+            const file_code = document.getElementById('actionCode').value.trim();
+            const user_name = document.getElementById('actionUser').value.trim();
+            const notes = document.getElementById('actionNotes').value.trim();
+            const borrower = document.getElementById('actionBorrower').value.trim();
+            const due_date = document.getElementById('actionDueDate').value;
+
+            if (!file_code) {
+                return showToast('Please enter or scan a Document Code', 'error');
+            }
+            if (!user_name) {
+                return showToast('Please enter the Staff Member Name', 'error');
+            }
+
+            const payload = { file_code, action, user_name, notes, borrower, due_date, pin_code: currentPinCode || undefined };
+
+            // 🔒 Classified check-out (full session): pause for a fresh Quick-PIN confirmation
+            if (action === 'CHECK_OUT' && !currentPinCode) {
+                const known = allFiles.find(f => f.file_code === file_code);
+                if (known && known.is_classified === 1) {
+                    return openPinConfirmModal({
+                        fileLabel: known.file_code + (known.title ? ' — ' + known.title : ''),
+                        title: 'Classified Check-Out',
+                        message: 'This document is classified. Enter your Quick-PIN to authorize its release.',
+                        confirmLabel: 'Confirm & Check-Out',
+                        onConfirm: (pin, showError) => submitCirculation(Object.assign({}, payload, { pin_code: pin }), showError)
+                    });
+                }
+            }
+
+            await submitCirculation(payload);
+        }
+
+        async function submitCirculation(payload, showError) {
+            try {
+                const res = await apiFetch('/api/files/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json().catch(() => ({}));
+
+                if (!res.ok) {
+                    // Server revealed the file is classified (stale/filtered local data) → prompt quietly
+                    if (result.code === 'PIN_REQUIRED') {
+                        const known = allFiles.find(f => f.file_code === payload.file_code);
+                        return openPinConfirmModal({
+                            fileLabel: payload.file_code + (known && known.title ? ' — ' + known.title : ''),
+                            title: 'Classified Check-Out',
+                            message: 'This document is classified. Enter your Quick-PIN to authorize its release.',
+                            confirmLabel: 'Confirm & Check-Out',
+                            onConfirm: (pin, se) => submitCirculation(Object.assign({}, payload, { pin_code: pin }), se)
+                        });
+                    }
+                    // Someone else acted on this file at the same moment → refresh state
+                    if (result.code === 'CONFLICT' && hasFullSession()) {
+                        loadFiles();
+                    }
+                    const msg = result.error || 'Circulation action failed';
+                    if (showError) {
+                        showError(msg);
+                    } else if (res.status !== 401) {
+                        showToast(msg, 'error');
+                    }
+                    return;
+                }
+
+                closePinConfirmModal(); // no-op when the modal wasn't involved
+                showToast(result.message, 'success');
+
+                // Show last action confirmation
+                const feedbackCard = document.getElementById('lastActionCard');
+                const feedbackText = document.getElementById('lastActionText');
+                if (feedbackCard && feedbackText) {
+                    feedbackText.innerText = result.message;
+                    feedbackCard.classList.remove('hidden');
+                }
+
+                document.getElementById('actionCode').value = '';
+                document.getElementById('actionNotes').value = '';
+                document.getElementById('actionBorrower').value = '';
+
+                // Refresh data across tabs (only possible with a full session token)
+                if (hasFullSession()) {
+                    loadFiles();
+                    fetchDashboardStats();
+                    loadLogs();
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Failed to connect to circulation API', 'error');
+            }
+        }
+
+        // --- AUDIT LOGS STREAM & TABLE ---
+        async function loadLogs() {
+            try {
+                const res = await apiFetch('/api/logs?limit=500');
+                const data = await res.json();
+                allLogs = Array.isArray(data) ? data : [];
+
+                renderDashboardRecentLogs(allLogs.slice(0, 5));
+                filterLogs();
+            } catch (err) {
+                console.error('Logs load error:', err);
+            }
+        }
+
+        function renderDashboardRecentLogs(logs) {
+            const container = document.getElementById('dashboardRecentLogs');
+            if (!container) return;
+
+            if (!logs || logs.length === 0) {
+                container.innerHTML = '<div class="text-slate-400 text-center py-4">No recent activity recorded</div>';
+                return;
+            }
+
+            container.innerHTML = logs.map(l => {
+                const chip = (cls, dot, txt) => '<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border font-bold text-[10px] tracking-wide whitespace-nowrap ' + cls + '"><span class="w-1.5 h-1.5 rounded-full ' + dot + '"></span>' + txt + '</span>';
+                const badge = l.action === 'CHECK_OUT' ? chip('bg-amber-50 text-amber-700 border-amber-200', 'bg-amber-500', 'CHECK OUT')
+                            : l.action === 'CHECK_IN' ? chip('bg-emerald-50 text-emerald-700 border-emerald-200', 'bg-emerald-500', 'CHECK IN')
+                            : l.action === 'REGISTER' ? chip('bg-sky-50 text-sky-700 border-sky-200', 'bg-sky-500', 'REGISTER')
+                            : l.action === 'DELETE' ? chip('bg-rose-50 text-rose-700 border-rose-200', 'bg-rose-500', 'DELETE')
+                            : chip('bg-slate-100 text-slate-600 border-slate-200', 'bg-slate-500', l.action);
+
+                const timeFormatted = new Date(l.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                return `
+                    <div class="p-2.5 rounded-lg bg-slate-50/80 border border-slate-100 space-y-1 hover:bg-slate-100/80 transition">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-1.5">
+                                ${badge}
+                                <span class="font-mono font-bold text-slate-800 text-[11px]">${l.file_code || '#'}</span>
+                            </div>
+                            <span class="text-[10px] text-slate-400">${timeFormatted}</span>
+                        </div>
+                        <div class="text-slate-600 text-[11px]">
+                            <span class="font-semibold text-slate-800">${escapeHtml(l.user_name)}</span>
+                            ${l.notes ? `— <span class="text-slate-500">${escapeHtml(l.notes)}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getFilteredLogs() {
+            const filterAction = document.getElementById('logActionFilter').value;
+            return filterAction ? allLogs.filter(l => l.action === filterAction) : allLogs;
+        }
+
+        function filterLogs() {
+            const tbody = document.getElementById('auditTableBody');
+            const emptyState = document.getElementById('logsEmptyState');
+
+            const filtered = getFilteredLogs();
+
+            if (!filtered || filtered.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                renderPager('logsPager', 0, logsPage, AUDIT_PAGE_SIZE, 'setLogsPage');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            // Show only the current page of rows (page numbers render below the table)
+            const totalPages = Math.max(1, Math.ceil(filtered.length / AUDIT_PAGE_SIZE));
+            if (logsPage > totalPages) logsPage = totalPages; // clamp after filter changes
+            if (logsPage < 1) logsPage = 1;
+            const pageRows = filtered.slice((logsPage - 1) * AUDIT_PAGE_SIZE, logsPage * AUDIT_PAGE_SIZE);
+            renderPager('logsPager', filtered.length, logsPage, AUDIT_PAGE_SIZE, 'setLogsPage');
+            tbody.innerHTML = pageRows.map(l => {
+                const chip = (cls, dot, txt) => '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border font-bold text-[10px] tracking-wide whitespace-nowrap ' + cls + '"><span class="w-1.5 h-1.5 rounded-full ' + dot + '"></span>' + txt + '</span>';
+                const badge = l.action === 'CHECK_OUT' ? chip('bg-amber-50 text-amber-700 border-amber-200', 'bg-amber-500', 'CHECK OUT')
+                            : l.action === 'CHECK_IN' ? chip('bg-emerald-50 text-emerald-700 border-emerald-200', 'bg-emerald-500', 'CHECK IN')
+                            : l.action === 'REGISTER' ? chip('bg-sky-50 text-sky-700 border-sky-200', 'bg-sky-500', 'REGISTER')
+                            : l.action === 'DELETE' ? chip('bg-rose-50 text-rose-700 border-rose-200', 'bg-rose-500', 'DELETE')
+                            : chip('bg-slate-100 text-slate-700 border-slate-200', 'bg-slate-500', l.action);
+
+                const dateObj = new Date(l.created_at);
+                const dateStr = dateObj.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                const timeStr = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                return `
+                    <tr class="hover:bg-slate-50/80 transition">
+                        <td class="py-3 px-4 text-slate-500 whitespace-nowrap">
+                            <span class="font-medium text-slate-700">${dateStr}</span>
+                            <span class="text-[11px] text-slate-400 block">${timeStr}</span>
+                        </td>
+                        <td class="py-3 px-3">${badge}</td>
+                        <td class="py-3 px-3">
+                            <span class="font-mono font-bold text-sky-700">${l.file_code || '-'}</span>
+                            <span class="text-slate-600 block text-[11px] font-medium truncate max-w-xs">${escapeHtml(l.file_title || '-')}</span>
+                        </td>
+                        <td class="py-3 px-3 text-slate-600 font-medium">${l.file_category || '-'}</td>
+                        <td class="py-3 px-3 text-slate-800 font-semibold">${escapeHtml(l.user_name)}</td>
+                        <td class="py-3 px-4 text-slate-500 text-[11px]">${escapeHtml(l.notes || '-')}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // --- SECURITY CLASSIFICATION TOGGLE ---
+        async function toggleClassify(id, currentStatus, pin, showError) {
+            const nextStatus = currentStatus === 1 ? false : true;
+            try {
+                const res = await apiFetch(`/api/files/${id}/classify`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_classified: nextStatus, pin_code: pin || undefined })
+                });
+                const result = await res.json().catch(() => ({}));
+
+                // 🔒 classified → public requires two-step Quick-PIN verification → prompt & retry
+                if (!res.ok && result.code === 'PIN_REQUIRED' && !showError) {
+                    const known = allFiles.find(f => String(f.id) === String(id));
+                    return openPinConfirmModal({
+                        fileLabel: known ? known.file_code + (known.title ? ' — ' + known.title : '') : 'Document ' + id,
+                        title: 'Declassify Document',
+                        message: 'This will make a classified document PUBLIC — anyone with the QR code could view its details. Enter your Quick-PIN to confirm.',
+                        confirmLabel: 'Confirm Declassification',
+                        onConfirm: (p, se) => toggleClassify(id, currentStatus, p, se)
+                    });
+                }
+
+                if (!res.ok) {
+                    const msg = result.error || 'Failed to update classification';
+                    if (showError) return showError(msg); // inline in the PIN modal (stays open)
+                    if (res.status !== 401) showToast(msg, 'error');
+                    return;
+                }
+
+                if (showError) closePinConfirmModal();
+                showToast(`Classification updated to ${nextStatus ? 'CLASSIFIED 🔒' : 'PUBLIC'}`, 'success');
+                loadFiles();
+                fetchDashboardStats();
+                loadLogs();
+            } catch (err) {
+                if (showError) showError('Failed to update classification');
+                else showToast('Failed to update classification', 'error');
+            }
+        }
+
+        // --- DELETION: confirmations + PIN-gated server guard (classified) ---
+        async function deleteFileRecord(id, code, isClassified, pin, showError) {
+            if (!pin && !showError) {
+                if (isClassified === 1) {
+                    const step1 = confirm(`🔒 CLASSIFIED DOCUMENT GUARD (Step 1/2):\nAre you sure you want to permanently delete classified record "${code}"?`);
+                    if (!step1) return;
+
+                    const step2 = prompt(`🔒 CLASSIFIED VERIFICATION (Step 2/2):\nSecurity Clearance Required! Please type the exact document code "${code}" to confirm destruction:`);
+                    if (step2 !== code) {
+                        return alert('Verification failed: Security code mismatch. Record preserved.');
+                    }
+                } else {
+                    if (!confirm(`Permanently delete document record "${code}"?`)) return;
+                }
+            }
+
+            try {
+                const res = await apiFetch(`/api/files/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin_code: pin || undefined })
+                });
+                const result = await res.json().catch(() => ({}));
+
+                // 🔒 classified deletion is PIN-gated server-side → open PIN modal & retry
+                if (!res.ok && result.code === 'PIN_REQUIRED' && !showError) {
+                    const known = allFiles.find(f => String(f.id) === String(id));
+                    return openPinConfirmModal({
+                        fileLabel: code + (known && known.title ? ' — ' + known.title : ''),
+                        title: 'Delete Classified Document',
+                        message: 'This permanently destroys a classified record — its metadata is gone for good (the audit history is kept). Enter your Quick-PIN to confirm.',
+                        confirmLabel: 'Confirm Deletion',
+                        onConfirm: (p, se) => deleteFileRecord(id, code, isClassified, p, se)
+                    });
+                }
+
+                if (!res.ok) {
+                    const msg = result.error || 'Deletion failed';
+                    if (showError) return showError(msg); // inline in the PIN modal (stays open)
+                    if (res.status !== 401) showToast(msg, 'error');
+                    return;
+                }
+
+                if (showError) closePinConfirmModal();
+                showToast(result.message || 'File deleted', 'success');
+                loadFiles();
+                fetchDashboardStats();
+                loadLogs();
+            } catch (err) {
+                if (showError) showError('Deletion failed');
+                else showToast('Deletion failed', 'error');
+            }
+        }
+
+        // --- MODAL FORM LOGIC ---
+        function openRegisterModal() {
+            if (!isAdminSession()) {
+                return showToast('Administrator privileges required to register documents.', 'error');
+            }
+            document.getElementById('formFileId').value = '';
+            document.getElementById('fileForm').reset();
+            document.getElementById('formCode').disabled = false;
+            document.getElementById('modalTitle').innerText = 'Register New Document';
+            document.getElementById('modalSubmitBtn').innerText = 'Save & Generate QR';
+            autoGenerateCode();
+            onFormatChange();
+            document.getElementById('fileModal').classList.remove('hidden');
+        }
+
+        function openEditModal(id) {
+            const file = allFiles.find(f => f.id === id);
+            if (!file) return;
+
+            document.getElementById('formFileId').value = file.id;
+            document.getElementById('formCode').value = file.file_code;
+            document.getElementById('formCode').disabled = true;
+            document.getElementById('formTitleInput').value = file.title;
+            document.getElementById('formCategory').value = file.category || '';
+            document.getElementById('formType').value = file.type;
+            document.getElementById('formLocation').value = file.physical_location || '';
+            document.getElementById('formDigitalPath').value = file.digital_path || '';
+            document.getElementById('formClassified').checked = (file.is_classified === 1);
+
+            document.getElementById('modalTitle').innerText = 'Edit Document Metadata';
+            document.getElementById('modalSubmitBtn').innerText = 'Update Document';
+            onFormatChange();
+            document.getElementById('fileModal').classList.remove('hidden');
+        }
+
+        function onFormatChange() {
+            const type = document.getElementById('formType').value;
+            const hint = document.getElementById('typeHintText');
+            const digInput = document.getElementById('formDigitalPath');
+
+            if (type === 'PHYSICAL') {
+                hint.innerText = 'Physical Document: Generates a barcode sticker for physical folder / shelf tracking.';
+                digInput.placeholder = 'Optional for physical documents';
+            } else if (type === 'DIGITAL') {
+                hint.innerText = 'Digital Document: QR code links directly to mobile viewer so staff can open it on phones/tablets.';
+                digInput.placeholder = 'https://drive.google.com/... or /docs/report.pdf';
+            } else {
+                hint.innerText = 'Hybrid Document: Bridges the physical folder in storage with its digital cloud copy.';
+                digInput.placeholder = 'https://... or /docs/scans/contract.pdf';
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('fileModal').classList.add('hidden');
+        }
+
+        function autoGenerateCode() {
+            const dept = document.getElementById('formCategory').value || 'DOC';
+            let prefix = 'DOC';
+            if (dept.includes('Finance')) prefix = 'FIN';
+            else if (dept.includes('Human')) prefix = 'HR';
+            else if (dept.includes('Legal')) prefix = 'LEG';
+            else if (dept.includes('Admin')) prefix = 'ADM';
+            else if (dept.includes('Operations')) prefix = 'OPS';
+
+            const rand = Math.floor(100 + Math.random() * 900);
+            const year = new Date().getFullYear();
+            document.getElementById('formCode').value = `${prefix}-${year}-${rand}`;
+        }
+
+        async function submitFileForm(pin, showError) {
+            const id = document.getElementById('formFileId').value;
+            const data = {
+                file_code: document.getElementById('formCode').value.trim(),
+                title: document.getElementById('formTitleInput').value.trim(),
+                category: document.getElementById('formCategory').value,
+                type: document.getElementById('formType').value,
+                physical_location: document.getElementById('formLocation').value,
+                digital_path: document.getElementById('formDigitalPath').value.trim(),
+                is_classified: document.getElementById('formClassified').checked,
+                user_name: document.getElementById('formStaffName').value.trim() || 'Officer'
+            };
+            if (pin) data.pin_code = pin;
+
+            try {
+                if (id) {
+                    const res = await apiFetch(`/api/files/${id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    const resData = await res.json();
+                    if (!res.ok) {
+                        if (res.status === 401) return; // apiFetch already surfaced the session message
+                        // 🔒 edit would declassify a classified record → prompt for Quick-PIN & retry
+                        if (resData.code === 'PIN_REQUIRED' && !showError) {
+                            const known = allFiles.find(f => String(f.id) === String(id));
+                            return openPinConfirmModal({
+                                fileLabel: known ? known.file_code + (known.title ? ' — ' + known.title : '') : 'Document ' + id,
+                                title: 'Declassify Document',
+                                message: 'Saving this edit would make a classified document PUBLIC. Enter your Quick-PIN to confirm.',
+                                confirmLabel: 'Confirm & Save',
+                                onConfirm: (p, se) => submitFileForm(p, se)
+                            });
+                        }
+                        throw new Error(resData.error || 'Error saving file');
+                    }
+                    showToast('Document updated successfully', 'success');
+                } else {
+                    const res = await apiFetch('/api/files', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    const resData = await res.json();
+                    if (!res.ok) {
+                        if (res.status === 401) return; // apiFetch already surfaced the session message
+                        throw new Error(resData.error || 'Error saving file');
+                    }
+                    showToast('New document registered', 'success');
+                    
+                    // Offer to print QR tag immediately
+                    openQrModal(data.file_code, data.title, data.category, data.physical_location, data.type, data.digital_path);
+                }
+
+                closePinConfirmModal(); // no-op unless the Quick-PIN modal was involved
+                closeModal();
+                loadFiles();
+                fetchDashboardStats();
+                loadLogs();
+            } catch (err) {
+                const msg = err.message || 'Error saving file';
+                if (showError) showError(msg); // inline in the Quick-PIN modal (stays open)
+                else showToast(msg, 'error');
+            }
+        }
+
+        // --- SMART QR MODAL & PRINTING ---
+        let currentQrInstance = null;
+        let currentQrData = null;
+
+        function openQrModal(code, title, category, location, type = 'PHYSICAL', digitalPath = '') {
+            currentQrData = { code, title, category, location, type, digitalPath };
+
+            const modeSelector = document.getElementById('qrModeSelector');
+            if (type === 'DIGITAL' || type === 'HYBRID') {
+                modeSelector.classList.remove('hidden');
+                switchQrMode('MOBILE');
+            } else {
+                modeSelector.classList.add('hidden');
+                switchQrMode('TERMINAL');
+            }
+
+            document.getElementById('qrModal').classList.remove('hidden');
+        }
+
+        function switchQrMode(mode) {
+            const d = currentQrData;
+            if (!d) return;
+
+            const btnMobile = document.getElementById('qrBtnMobile');
+            const btnTerminal = document.getElementById('qrBtnTerminal');
+            const badgeTypeTag = document.getElementById('badgeTypeTag');
+            const badgeEncodedTarget = document.getElementById('badgeEncodedTarget');
+
+            document.getElementById('badgeCode').innerText = d.code;
+            document.getElementById('badgeTitle').innerText = d.title;
+            document.getElementById('badgeCategory').innerText = d.category || 'General';
+            document.getElementById('badgeLocation').innerText = d.location ? `Location: ${d.location}` : (d.type === 'DIGITAL' ? 'Cloud Hosted' : 'No Physical Location');
+
+            let qrString = d.code;
+            const universalUrl = `${window.location.origin}/view/${d.code}`;
+
+            if (mode === 'MOBILE') {
+                btnMobile.className = 'px-2.5 py-1 rounded-md bg-white text-sky-800 shadow-xs font-bold';
+                btnTerminal.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-800';
+
+                qrString = universalUrl;
+                badgeTypeTag.className = 'text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full inline-block bg-indigo-50 text-indigo-700 border border-indigo-200';
+                badgeTypeTag.innerText = '📱 Phone Quick-Open Tag';
+                badgeEncodedTarget.innerText = `Scan to open: /view/${d.code}`;
+            } else {
+                btnMobile.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-800';
+                btnTerminal.className = 'px-2.5 py-1 rounded-md bg-white text-slate-800 shadow-xs font-bold';
+
+                qrString = d.code;
+                badgeTypeTag.className = 'text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full inline-block bg-blue-50 text-blue-700 border border-blue-200';
+                badgeTypeTag.innerText = '🏷️ Desk Circulation Tag';
+                badgeEncodedTarget.innerText = `Scan at desk: ${d.code}`;
+            }
+
+            const container = document.getElementById('qrCodeContainer');
+            container.innerHTML = '';
+            currentQrInstance = new QRCode(container, {
+                text: qrString,
+                width: 130,
+                height: 130,
+                colorDark: '#0f172a',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M
+            });
+        }
+
+        function closeQrModal() {
+            document.getElementById('qrModal').classList.add('hidden');
+        }
+
+        // --- TOAST NOTIFICATIONS ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const colorClass = type === 'success' ? 'bg-emerald-600 text-white'
+                             : type === 'error' ? 'bg-rose-600 text-white'
+                             : 'bg-slate-800 text-white';
+
+            toast.className = `${colorClass} px-4 py-2.5 rounded-xl shadow-lg text-xs font-semibold flex items-center space-x-2 transition transform translate-y-2 opacity-0 pointer-events-auto`;
+            toast.innerHTML = `<span>${message}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // --- STAFF MANAGEMENT FUNCTIONS ---
+        function openStaffModal() {
+            document.getElementById('staffModal').classList.remove('hidden');
+            loadStaffList();
+        }
+
+        function closeStaffModal() {
+            document.getElementById('staffModal').classList.add('hidden');
+        }
+
+        async function loadStaffList() {
+            try {
+                const res = await apiFetch('/api/users');
+                if (!res.ok) return;
+                const users = await res.json();
+                const tbody = document.getElementById('staffTableBody');
+                tbody.innerHTML = users.map(u => `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="py-2 px-3 font-medium text-slate-800">${escapeHtml(u.full_name)}</td>
+                        <td class="py-2 px-3 font-mono text-xs text-slate-600">${escapeHtml(u.username)}</td>
+                        <td class="py-2 px-3">
+                            <span class="text-[10px] px-1.5 py-0.5 rounded-full font-bold ${u.role === 'ADMIN' ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-sky-50 text-sky-700 border border-sky-200'}">${u.role}</span>
+                        </td>
+                        <td class="py-2 px-3 text-xs text-slate-500">${u.has_pin ? '✓ Set' : '—'}</td>
+                        <td class="py-2 px-3 text-right whitespace-nowrap">
+                            <button onclick="resetStaffCredentials(${u.id}, '${escapeHtml(u.username)}')" class="text-xs text-sky-600 hover:text-sky-800 font-semibold mr-3 cursor-pointer" title="Reset password / Quick-PIN">Reset</button>
+                            <button onclick="deleteStaff(${u.id}, '${escapeHtml(u.username)}')" class="text-xs text-rose-600 hover:text-rose-800 font-semibold cursor-pointer">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error('Staff list error:', err);
+            }
+        }
+
+        async function addStaffMember() {
+            const fullName = document.getElementById('staffFullName').value.trim();
+            const username = document.getElementById('staffUsername').value.trim();
+            const password = document.getElementById('staffPassword').value.trim();
+            const pinCode = document.getElementById('staffPinCode').value.trim();
+            const role = document.getElementById('staffRole').value;
+
+            if (!fullName || !username) {
+                return showToast('Full name and username are required', 'error');
+            }
+
+            try {
+                const res = await apiFetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password, pin_code: pinCode, full_name: fullName, role })
+                });
+                const result = await res.json();
+                if (!res.ok) {
+                    if (res.status !== 401) showToast(result.error || 'Failed to add staff', 'error');
+                    return;
+                }
+                showToast('Staff member added successfully', 'success');
+                document.getElementById('staffFullName').value = '';
+                document.getElementById('staffUsername').value = '';
+                document.getElementById('staffPassword').value = '';
+                document.getElementById('staffPinCode').value = '';
+                loadStaffList();
+            } catch (err) {
+                showToast('Failed to add staff member', 'error');
+            }
+        }
+
+        async function deleteStaff(id, username) {
+            if (!confirm(`Delete staff member "${username}"?`)) return;
+            try {
+                const res = await apiFetch(`/api/users/${id}`, { method: 'DELETE' });
+                const result = await res.json();
+                if (!res.ok) {
+                    if (res.status !== 401) showToast(result.error || 'Failed to delete', 'error');
+                    return;
+                }
+                showToast('Staff member removed', 'success');
+                loadStaffList();
+            } catch (err) {
+                showToast('Failed to delete staff', 'error');
+            }
+        }
+
+        async function resetStaffCredentials(id, username) {
+            let password = prompt(`🔑 Reset credentials for "${username}"\n\nNew password (minimum 6 characters):\n(Cancel, then you'll be asked for a Quick-PIN instead)`);
+            let pin = null;
+
+            if (password === null) {
+                // Password skipped — offer a Quick-PIN-only reset
+                pin = prompt(`🔑 New Quick-PIN for "${username}" (4–6 digits):\nCancel to abort.`);
+                if (pin === null) return;
+                pin = pin.trim();
+                if (!pin) return showToast('Nothing to update', 'error');
+            } else {
+                password = password.trim();
+                if (password.length < 6) return showToast('Password must be at least 6 characters', 'error');
+                pin = prompt(`🔑 New Quick-PIN for "${username}" (4–6 digits)?\nCancel to keep the current PIN.`);
+                if (pin !== null) pin = pin.trim();
+            }
+
+            if (pin && !/^\d{4,6}$/.test(pin)) return showToast('Quick-PIN must be 4–6 digits', 'error');
+
+            const body = {};
+            if (password) body.password = password;
+            if (pin) body.pin_code = pin;
+            if (!body.password && !body.pin_code) return;
+
+            try {
+                const res = await apiFetch(`/api/users/${id}/credentials`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const result = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    if (res.status !== 401) showToast(result.error || 'Reset failed', 'error');
+                    return;
+                }
+                if (result.token) localStorage.setItem('authToken', result.token); // self-reset: keep session alive
+                showToast(result.message || 'Credentials reset', 'success');
+            } catch (err) {
+                showToast('Reset failed', 'error');
+            }
+        }
+
+        // --- BACKUP / RESTORE (Data Safety) ---
+        async function downloadBackup() {
+            try {
+                const res = await apiFetch('/api/backup/download');
+                if (!res.ok) {
+                    const result = await res.json().catch(() => ({}));
+                    if (res.status !== 401) showToast(result.error || 'Backup failed', 'error');
+                    return;
+                }
+                const blob = await res.blob();
+                const cd = res.headers.get('Content-Disposition') || '';
+                const m = cd.match(/filename="?([^";]+)"?/);
+                const name = m ? m[1] : 'archivex-backup.db';
+
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = name;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 5000);
+                showToast(`Backup downloaded: ${name}`, 'success');
+            } catch (err) {
+                showToast('Backup failed', 'error');
+            }
+        }
+
+        async function restoreBackup(input) {
+            const file = input.files && input.files[0];
+            if (!file) return;
+
+            const ok = confirm(
+                `⚠️ RESTORE BACKUP?\n\n` +
+                `This REPLACES ALL current data with:\n"${file.name}" (${Math.max(1, Math.round(file.size / 1024))} KB)\n\n` +
+                `• A safety copy of the current database is kept on the server\n` +
+                `• Everyone will be signed out afterwards\n\n` +
+                `Continue?`
+            );
+            if (!ok) { input.value = ''; return; }
+
+            try {
+                const res = await apiFetch('/api/backup/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/octet-stream' },
+                    body: file
+                });
+                const result = await res.json().catch(() => null);
+                if (!res.ok || !result || !result.success) {
+                    const msg = res.status === 413
+                        ? 'Backup file is too large (max 64 MB)'
+                        : (result && result.error) || 'Restore failed — the file may not be a valid backup';
+                    if (res.status !== 401) showToast(msg, 'error');
+                    input.value = '';
+                    return;
+                }
+                showToast('Backup restored — signing out for safety…', 'success');
+                setTimeout(() => location.reload(), 1400);
+            } catch (err) {
+                showToast('Restore failed', 'error');
+                input.value = '';
+            }
+            input.value = '';
+        }
+
+        // --- SELF-SERVICE PASSWORD CHANGE ---
+        async function changeMyPassword() {
+            const cur = document.getElementById('curPw').value;
+            const nw = document.getElementById('newPw').value;
+            const cf = document.getElementById('cfmPw').value;
+
+            if (!cur || !nw) return showToast('Enter your current and new password', 'error');
+            if (nw.length < 6) return showToast('New password must be at least 6 characters', 'error');
+            if (nw !== cf) return showToast('New passwords do not match', 'error');
+
+            try {
+                const res = await apiFetch('/api/auth/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ current_password: cur, new_password: nw })
+                });
+                const result = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    if (res.status !== 401) showToast(result.error || 'Password change failed', 'error');
+                    return;
+                }
+                if (result.token) localStorage.setItem('authToken', result.token); // seamless session
+                document.getElementById('curPw').value = '';
+                document.getElementById('newPw').value = '';
+                document.getElementById('cfmPw').value = '';
+                showToast('Password changed successfully', 'success');
+            } catch (err) {
+                showToast('Password change failed', 'error');
+            }
+        }
+
+        // --- AUTHENTICATION STATE MANAGEMENT ---
+        let currentUser = null;
+        let isLoginPinMode = false;
+
+        function openLoginModal() {
+            document.getElementById('loginModal').classList.remove('hidden');
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginPinCode').value = '';
+            document.getElementById('loginPinSection').classList.add('hidden');
+            document.getElementById('toggleLoginModeBtn').innerText = 'Switch to Quick-PIN →';
+            isLoginPinMode = false;
+            // Reset ALL state left behind by a previous PIN-mode session — otherwise the
+            // hidden PIN input stays required and silently blocks password form submission
+            document.getElementById('loginUsername').required = true;
+            document.getElementById('loginPassword').required = true;
+            document.getElementById('loginPinCode').required = false;
+            document.getElementById('loginSubmitBtn').innerText = 'Login';
+            document.getElementById('loginModalTitle').innerText = 'Admin Login';
+            document.getElementById('loginUsername').focus();
+        }
+
+        function closeLoginModal() {
+            document.getElementById('loginModal').classList.add('hidden');
+        }
+
+        function toggleLoginMode() {
+            isLoginPinMode = !isLoginPinMode;
+            const pinSection = document.getElementById('loginPinSection');
+            const usernameInput = document.getElementById('loginUsername');
+            const passwordInput = document.getElementById('loginPassword');
+            const pinInput = document.getElementById('loginPinCode');
+            const toggleBtn = document.getElementById('toggleLoginModeBtn');
+            const submitBtn = document.getElementById('loginSubmitBtn');
+            const title = document.getElementById('loginModalTitle');
+
+            if (isLoginPinMode) {
+                pinSection.classList.remove('hidden');
+                usernameInput.required = false;
+                passwordInput.required = false;
+                pinInput.required = true;
+                toggleBtn.innerText = 'Switch to Password Login →';
+                submitBtn.innerText = 'Verify PIN';
+                title.innerText = 'Quick-PIN Access';
+                pinInput.focus();
+            } else {
+                pinSection.classList.add('hidden');
+                usernameInput.required = true;
+                passwordInput.required = true;
+                pinInput.required = false;
+                toggleBtn.innerText = 'Switch to Quick-PIN →';
+                submitBtn.innerText = 'Login';
+                title.innerText = 'Admin Login';
+                usernameInput.focus();
+            }
+        }
+
+        async function handleLogin() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            const pinCode = document.getElementById('loginPinCode').value.trim();
+
+            try {
+                let res;
+                if (isLoginPinMode) {
+                    // Quick-PIN authentication
+                    res = await fetch('/api/auth/verify-pin', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pin_code: pinCode })
+                    });
+                } else {
+                    // Full username + password login
+                    if (!username || !password) {
+                        return showToast('Username and password are required', 'error');
+                    }
+                    res = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
+                }
+
+                const result = await res.json();
+                if (!res.ok) {
+                    return showToast(result.error || 'Authentication failed', 'error');
+                }
+
+                if (isLoginPinMode) {
+                    // Quick-PIN mode: kiosk identity for circulation (no data-session token)
+                    localStorage.removeItem('authToken'); // never carry a stale session token into kiosk mode
+                    currentUser = result.user;
+                    currentPinCode = pinCode;
+                    showToast(`Welcome, ${currentUser.full_name}! Quick-PIN ready.`, 'success');
+                    updateAuthUI();
+                    closeLoginModal();
+                    hideGuestOverlay();
+                    switchTab('circulation');
+                } else {
+                    // Full login: store token and user info
+                    currentUser = result.user;
+                    currentPinCode = null;
+                    localStorage.setItem('authToken', result.token);
+                    showToast(`Welcome back, ${currentUser.full_name}!`, 'success');
+                    updateAuthUI();
+                    closeLoginModal();
+                    hideGuestOverlay();
+
+                    // Load dashboard data now that user is authenticated
+                    loadDashboardData();
+                }
+            } catch (err) {
+                console.error('Login error:', err);
+                showToast('Failed to connect to authentication server', 'error');
+            }
+        }
+
+        function updateAuthUI() {
+            const authContainer = document.getElementById('authContainer');
+            const registerBtn = document.getElementById('registerBtn');
+            const loginBtn = document.getElementById('loginBtn');
+
+            if (currentUser) {
+                // Logged in state: Show user profile and admin actions
+                authContainer.innerHTML = `
+                    <div class="flex items-center gap-2.5">
+                        <svg class="hidden md:block w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                        <span class="hidden md:block text-xs font-semibold text-slate-700 whitespace-nowrap">${escapeHtml(currentUser.full_name)}</span>
+                        <span class="text-[10px] px-2 py-0.5 rounded-full font-bold tracking-wide ${currentUser.role === 'ADMIN' ? 'bg-rose-100 text-rose-700' : 'bg-sky-100 text-sky-700'}">${currentUser.role}</span>
+                        <button onclick="handleLogout()" class="ml-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition">Log Out</button>
+                    </div>
+                `;
+
+                if (isAdminSession()) {
+                    // Full admin session unlocks document registration & staff management
+                    registerBtn.classList.remove('hidden');
+                    if (!document.getElementById('manageStaffBtn')) {
+                        const staffBtn = document.createElement('button');
+                        staffBtn.id = 'manageStaffBtn';
+                        staffBtn.onclick = () => openStaffModal();
+                        staffBtn.className = 'px-3.5 py-2 bg-transparent border border-slate-300 hover:border-slate-400 hover:bg-slate-100 text-slate-700 hover:text-slate-900 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition';
+                        staffBtn.title = 'Manage Staff';
+                        staffBtn.setAttribute('aria-label', 'Manage Staff');
+                        staffBtn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M15 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg><span class="hidden lg:inline">Manage Staff</span>';
+                        authContainer.parentElement.insertBefore(staffBtn, registerBtn);
+                    }
+                } else {
+                    // Staff role or Quick-PIN session: hide admin-only controls
+                    registerBtn.classList.add('hidden');
+                    const staffBtn = document.getElementById('manageStaffBtn');
+                    if (staffBtn) staffBtn.remove();
+                }
+            } else {
+                // Logged out state: Show login button
+                authContainer.innerHTML = `
+                    <button onclick="openLoginModal()" id="loginBtn" class="px-3.5 py-2 bg-slate-700 hover:bg-slate-800 active:bg-slate-900 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 shadow-sm transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                        </svg>
+                        <span>Admin Login</span>
+                    </button>
+                `;
+                registerBtn.classList.add('hidden');
+                
+                // Remove staff management button
+                const staffBtn = document.getElementById('manageStaffBtn');
+                if (staffBtn) staffBtn.remove();
+            }
+        }
+
+        // --- GUEST OVERLAY ---
+        function showGuestOverlay() {
+            // Create or update guest overlay
+            let overlay = document.getElementById('guestOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'guestOverlay';
+                overlay.className = 'fixed inset-0 z-40 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center hidden';
+                overlay.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 space-y-6 text-center">
+                        <div class="space-y-3">
+                            <svg class="w-16 h-16 mx-auto text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.1 0-2 .9-2 2s1 2 2 2 2-.9 2-2-.9-2-2-2zm0 2c-1.1 0-2 .9-2 2s1 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s1 2 2 2 2-.9 2-2-.9-2-2-2z"></path>
+                                <circle cx="12" cy="12" r="9" fill="none" stroke-width="2"/>
+                            </svg>
+                            <h2 class="text-xl font-bold text-slate-900">Please Log In</h2>
+                            <p class="text-slate-600">Access to the file tracking system requires authentication</p>
+                            <button onclick="openLoginModal()" class="w-full px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg transition">Log In</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+            }
+            overlay.classList.remove('hidden');
+        }
+
+        function hideGuestOverlay() {
+            const overlay = document.getElementById('guestOverlay');
+            if (overlay) overlay.classList.add('hidden');
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            currentPinCode = null;
+            localStorage.removeItem('authToken');
+            showToast('Successfully logged out', 'success');
+            updateAuthUI();
+            showGuestOverlay();
+        }
+
+        // Check for existing session on load
+        async function checkAuthSession() {
+            const token = localStorage.getItem('authToken');
+            if (token) {
+                try {
+                    const res = await fetch('/api/auth/me', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        currentUser = data.user;
+                        updateAuthUI();
+                        return true;
+                    } else {
+                        localStorage.removeItem('authToken');
+                        return false;
+                    }
+                } catch (err) {
+                    console.error('Session check error:', err);
+                    localStorage.removeItem('authToken');
+                    return false;
+                }
+            }
+            return false;
+        }
+
+        // --- STARTUP ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Apply the saved theme and sync the Options tab picker state
+            setTheme(localStorage.getItem('uiTheme') || 'aurora');
+            // Default circulation due date: one week from today
+            const dueInput = document.getElementById('actionDueDate');
+            if (dueInput && !dueInput.value) {
+                const due = new Date();
+                due.setDate(due.getDate() + 7);
+                dueInput.value = due.getFullYear() + '-' + String(due.getMonth() + 1).padStart(2, '0') + '-' + String(due.getDate()).padStart(2, '0');
+            }
+            const isAuthenticated = await checkAuthSession();
+            if (isAuthenticated && currentUser) {
+                loadDashboardData();
+            } else {
+                showGuestOverlay();
+            }
+        });
+
+        // Expose auth functions globally for HTML onclick handlers
+        window.toggleLoginMode = toggleLoginMode;
+        window.openLoginModal = openLoginModal;
+        window.closeLoginModal = closeLoginModal;
+        window.handleLogin = handleLogin;
+        window.handleLogout = handleLogout;
+        window.openStaffModal = openStaffModal;
+        window.closeStaffModal = closeStaffModal;
+    </script>
+</body>
+</html>

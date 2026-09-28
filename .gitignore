@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Database files & restore safety copies (data lives in backups, not git)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.bak
+
+# Manual code snapshots (fallback version control)
+_snapshots/
