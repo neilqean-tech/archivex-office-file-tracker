@@ -793,13 +793,13 @@
                     <table class="w-full text-left border-collapse min-w-[860px]">
                         <thead>
                             <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                <th onclick="setFilesSort('code')" class="py-3 px-4 cursor-pointer select-none hover:text-sky-700" title="Sort by code">Code & QR <span class="sort-ind text-slate-300" data-sk="files:code">↕</span></th>
-                                <th onclick="setFilesSort('title')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by title">Title & Information <span class="sort-ind text-slate-300" data-sk="files:title">↕</span></th>
-                                <th onclick="setFilesSort('category')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by department">Department <span class="sort-ind text-slate-300" data-sk="files:category">↕</span></th>
-                                <th onclick="setFilesSort('location')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by location">Storage Location <span class="sort-ind text-slate-300" data-sk="files:location">↕</span></th>
-                                <th onclick="setFilesSort('classified')" class="py-3 px-2 text-center cursor-pointer select-none hover:text-sky-700" title="Sort by access level">Security <span class="sort-ind text-slate-300" data-sk="files:classified">↕</span></th>
-                                <th onclick="setFilesSort('status')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by status">Status <span class="sort-ind text-slate-300" data-sk="files:status">↕</span></th>
-                                <th onclick="setFilesSort('retention')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by retention date">Retention <span class="sort-ind text-slate-300" data-sk="files:retention">↕</span></th>
+                                <th class="py-3 px-4">Code & QR</th>
+                                <th class="py-3 px-3">Title & Information</th>
+                                <th class="py-3 px-3">Department</th>
+                                <th class="py-3 px-3">Storage Location</th>
+                                <th class="py-3 px-2 text-center">Security</th>
+                                <th class="py-3 px-3">Status</th>
+                                <th class="py-3 px-3">Retention</th>
                                 <th class="py-3 px-4 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -1000,12 +1000,12 @@
                     <table class="w-full text-left border-collapse min-w-[700px]">
                         <thead>
                             <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                <th onclick="setLogsSort('created')" class="py-3 px-4 cursor-pointer select-none hover:text-sky-700" title="Sort by date">Date & Time <span class="sort-ind text-slate-300" data-sk="logs:created">↕</span></th>
-                                <th onclick="setLogsSort('action')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by action">Action <span class="sort-ind text-slate-300" data-sk="logs:action">↕</span></th>
-                                <th onclick="setLogsSort('code')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by document">Document <span class="sort-ind text-slate-300" data-sk="logs:code">↕</span></th>
-                                <th onclick="setLogsSort('category')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by department">Department <span class="sort-ind text-slate-300" data-sk="logs:category">↕</span></th>
-                                <th onclick="setLogsSort('user')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by staff member">Operating Staff <span class="sort-ind text-slate-300" data-sk="logs:user">↕</span></th>
-                                <th onclick="setLogsSort('notes')" class="py-3 px-4 cursor-pointer select-none hover:text-sky-700" title="Sort by notes">Notes / Operational Context <span class="sort-ind text-slate-300" data-sk="logs:notes">↕</span></th>
+                                <th class="py-3 px-4">Date & Time</th>
+                                <th class="py-3 px-3">Action</th>
+                                <th class="py-3 px-3">Document</th>
+                                <th class="py-3 px-3">Department</th>
+                                <th class="py-3 px-3">Operating Staff</th>
+                                <th class="py-3 px-4">Notes / Operational Context</th>
                             </tr>
                         </thead>
                         <tbody id="auditTableBody" class="divide-y divide-slate-100 text-xs">
@@ -1816,7 +1816,7 @@
                 else { filesSort.key = ''; filesSort.dir = 'desc'; } // third click: natural order
             } else { filesSort.key = key; filesSort.dir = 'asc'; }
             filesPage = 1;
-            updateSortIndicators('files');
+            renderSortButtons('files');
             renderTable(allFiles);
         }
 
@@ -1826,21 +1826,11 @@
                 else { logsSort.key = ''; logsSort.dir = 'desc'; } // third click: natural order
             } else { logsSort.key = key; logsSort.dir = 'asc'; }
             logsPage = 1;
-            updateSortIndicators('logs');
+            renderSortButtons('logs');
             filterLogs();
         }
 
-        function updateSortIndicators(prefix) {
-            const state = prefix === 'files' ? filesSort : logsSort;
-            document.querySelectorAll('.sort-ind[data-sk^="' + prefix + ':"]').forEach(el => {
-                const active = el.dataset.sk.split(':')[1] === state.key;
-                el.textContent = active ? (state.dir === 'asc' ? '▲' : '▼') : '↕';
-                el.className = 'sort-ind select-none ' + (active ? 'text-sky-600' : 'text-slate-300');
-            });
-            renderSortButtons(prefix);
-        }
-
-        // --- Explicit sort buttons (one per column) kept in sync with header clicks ---
+        // --- Explicit sort buttons (one per column) — click 1× A→Z, 2× Z→A, 3× natural ---
         const FILES_SORT_FIELDS = [
             { key: 'code', label: 'Code' },
             { key: 'title', label: 'Title' },
