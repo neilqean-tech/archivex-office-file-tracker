@@ -1967,12 +1967,12 @@
                         <!-- Title & Digital Path -->
                         <td class="py-3 px-3">
                             <div class="font-semibold text-slate-800">${escapeHtml(f.title)}</div>
-                            <div class="flex items-center gap-2 mt-0.5">
-                                ${f.digital_path ? `<span class="text-[11px] text-slate-400 font-mono truncate max-w-xs">${escapeHtml(f.digital_path)}</span>` : ''}
+                            <div class="flex items-center gap-2 mt-0.5 min-w-0">
+                                ${f.digital_path ? `<span class="text-[11px] text-slate-400 font-mono truncate min-w-0 flex-1 max-w-xs">${escapeHtml(f.digital_path)}</span>` : ''}
                                 ${(f.type === 'DIGITAL' || f.type === 'HYBRID' || f.digital_path) ? `
-                                    <a href="/view/${f.file_code}" target="_blank" class="inline-flex items-center gap-1 text-[11px] text-sky-600 hover:text-sky-800 font-semibold transition" title="Open Digital Document Viewer">
+                                    <a href="/view/${f.file_code}" target="_blank" class="inline-flex items-center gap-1 shrink-0 whitespace-nowrap text-[11px] text-sky-600 hover:text-sky-800 font-semibold transition" title="Open Digital Document Viewer">
                                         <span>Open File</span>
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                                        <svg class="w-3 h-3 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                                     </a>
                                 ` : ''}
                             </div>
