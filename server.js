@@ -47,6 +47,8 @@ function initializeSchema(handle, done) {
         // Circulation custody: who currently holds the file and when it is due back
         handle.run(`ALTER TABLE files ADD COLUMN borrower_name TEXT`, () => {});
         handle.run(`ALTER TABLE files ADD COLUMN due_date TEXT`, () => {});
+        // Retention schedule: when this record's legal retention period ends
+        handle.run(`ALTER TABLE files ADD COLUMN retention_due TEXT`, () => {});
 
         // 2. Logs Table (Circulation & Audit Trail)
         handle.run(`CREATE TABLE IF NOT EXISTS file_logs (
@@ -600,7 +602,9 @@ app.get('/api/dashboard/stats', requireAuth, (req, res) => {
             SUM(CASE WHEN status = 'AVAILABLE' THEN 1 ELSE 0 END) AS available_files,
             SUM(CASE WHEN status = 'CHECKED_OUT' THEN 1 ELSE 0 END) AS checked_out_files,
             SUM(CASE WHEN is_classified = 1 THEN 1 ELSE 0 END) AS classified_files,
-            SUM(CASE WHEN status = 'CHECKED_OUT' AND due_date IS NOT NULL AND due_date != '' AND due_date < date('now') THEN 1 ELSE 0 END) AS overdue_files
+            SUM(CASE WHEN status = 'CHECKED_OUT' AND due_date IS NOT NULL AND due_date != '' AND due_date < date('now') THEN 1 ELSE 0 END) AS overdue_files,
+            SUM(CASE WHEN retention_due IS NOT NULL AND retention_due != '' AND retention_due <= date('now') AND status != 'DISPOSED' THEN 1 ELSE 0 END) AS disposal_due_files,
+            SUM(CASE WHEN status = 'DISPOSED' THEN 1 ELSE 0 END) AS disposed_files
         FROM files
     `;
 
@@ -644,6 +648,8 @@ app.get('/api/dashboard/stats', requireAuth, (req, res) => {
                         checked_out_files: summary.checked_out_files || 0,
                         classified_files: summary.classified_files || 0,
                         overdue_files: summary.overdue_files || 0,
+                        disposal_due_files: summary.disposal_due_files || 0,
+                        disposed_files: summary.disposed_files || 0,
                         today_actions: recent.today_actions || 0,
                         category_distribution: categories,
                         type_distribution: typeMap
@@ -690,7 +696,7 @@ app.get('/api/logs', requireAuth, (req, res) => {
 
 // GET /api/files - List files with search & multi-filter support
 app.get('/api/files', requireAuth, (req, res) => {
-    const { search = '', category = '', status = '', type = '', classified = '', overdue = '' } = req.query;
+    const { search = '', category = '', status = '', type = '', classified = '', overdue = '', disposal = '' } = req.query;
 
     let conditions = [];
     let params = [];
@@ -726,6 +732,11 @@ app.get('/api/files', requireAuth, (req, res) => {
         conditions.push(`status = 'CHECKED_OUT' AND due_date IS NOT NULL AND due_date != '' AND due_date < date('now')`);
     }
 
+    if (disposal === '1') {
+        // Retention period has ended and the record hasn't been disposed yet
+        conditions.push(`retention_due IS NOT NULL AND retention_due != '' AND retention_due <= date('now') AND status != 'DISPOSED'`);
+    }
+
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const query = `SELECT * FROM files ${whereClause} ORDER BY id DESC`;
 
@@ -740,20 +751,26 @@ app.get('/api/files', requireAuth, (req, res) => {
 
 // POST /api/files - Register new file (Admin Only)
 app.post('/api/files', requireAdmin, (req, res) => {
-    const { file_code, title, category, type, physical_location, digital_path = '', is_classified } = req.body;
+    const { file_code, title, category, type, physical_location, digital_path = '', is_classified, retention_due } = req.body;
     
     if (!file_code || !title || !category || !type) {
         return res.status(400).json({ error: 'file_code, title, category, and type are required.' });
     }
 
+    const retentionGiven = retention_due !== undefined && retention_due !== null && String(retention_due).trim() !== '';
+    if (retentionGiven && !(/^\d{4}-\d{2}-\d{2}$/.test(String(retention_due).trim()) && !isNaN(new Date(String(retention_due).trim())))) {
+        return res.status(400).json({ error: 'retention_due must be a valid date in YYYY-MM-DD format.' });
+    }
+    const retentionVal = retentionGiven ? String(retention_due).trim() : null;
+
     const operator = req.user ? req.user.full_name : 'Administrator';
     const classifiedValue = is_classified ? 1 : 0;
     const query = `
-        INSERT INTO files (file_code, title, category, type, physical_location, digital_path, is_classified, status) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'AVAILABLE')
+        INSERT INTO files (file_code, title, category, type, physical_location, digital_path, is_classified, status, retention_due) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', ?)
     `;
 
-    db.run(query, [file_code.trim(), title.trim(), category, type, physical_location || '', digital_path || '', classifiedValue], function(err) {
+    db.run(query, [file_code.trim(), title.trim(), category, type, physical_location || '', digital_path || '', classifiedValue, retentionVal], function(err) {
         if (err) {
             console.error("POST Error:", err.message);
             return res.status(400).json({ error: err.message });
@@ -820,16 +837,19 @@ app.post('/api/files/import', requireAdmin, (req, res) => {
                 const title = String(row.title || '').trim();
                 const category = String(row.category || '').trim();
                 const type = String(row.type || '').trim().toUpperCase();
+                const retention = String(row.retention_due || '').trim();
 
                 if (!code && !title && !category) return; // fully blank row: ignore
                 if (!code) return skipped.push({ line, code: '(blank)', reason: 'file_code is required' });
                 if (!title) return skipped.push({ line, code, reason: 'title is required' });
                 if (!category) return skipped.push({ line, code, reason: 'category is required' });
                 if (!VALID_TYPES.includes(type)) return skipped.push({ line, code, reason: `type must be PHYSICAL, DIGITAL or HYBRID (got "${type || '?'}")` });
+                if (retention && !(/^\d{4}-\d{2}-\d{2}$/.test(retention) && !isNaN(new Date(retention)))) return skipped.push({ line, code, reason: `retention_due must be YYYY-MM-DD (got "${retention}")` });
                 if (seen.has(code)) return skipped.push({ line, code, reason: 'duplicate code inside this file' });
                 seen.add(code);
                 toImport.push({
                     line, code, title, category, type,
+                    ret: retention,
                     loc: String(row.physical_location || '').trim(),
                     dig: String(row.digital_path || '').trim()
                 });
@@ -868,8 +888,8 @@ app.post('/api/files/import', requireAdmin, (req, res) => {
                     if (idx >= queue.length) return finish();
                     const r = queue[idx++];
                     db.run(
-                        `INSERT INTO files (file_code, title, category, type, physical_location, digital_path, status) VALUES (?, ?, ?, ?, ?, ?, 'AVAILABLE')`,
-                        [r.code, r.title, r.category, r.type, r.loc, r.dig],
+                        `INSERT INTO files (file_code, title, category, type, physical_location, digital_path, status, retention_due) VALUES (?, ?, ?, ?, ?, ?, 'AVAILABLE', ?)`,
+                        [r.code, r.title, r.category, r.type, r.loc, r.dig, r.ret || null],
                         function (e2) {
                             if (e2) {
                                 skipped.push({ line: r.line, code: r.code, reason: (e2.message || '').includes('UNIQUE') ? 'already in registry' : e2.message });
@@ -892,23 +912,33 @@ app.post('/api/files/import', requireAdmin, (req, res) => {
 // PUT /api/files/:id - Update existing file (Admin Only)
 // Saving an edit that lowers classification (classified → public) requires Quick-PIN.
 app.put('/api/files/:id', requireAdmin, (req, res) => {
-    const { title, category, type, physical_location, digital_path = '', is_classified, pin_code } = req.body;
+    const { title, category, type, physical_location, digital_path = '', is_classified, pin_code, retention_due } = req.body;
     const classifiedValue = is_classified ? 1 : 0;
     const fileId = req.params.id;
     const operator = req.user ? req.user.full_name : 'Administrator';
 
+    // retention_due: undefined = leave unchanged; '' = clear; a date = set
+    const touchRetention = retention_due !== undefined && retention_due !== null;
+    const retentionTrimmed = touchRetention ? String(retention_due).trim() : '';
+    if (retentionTrimmed && !(/^\d{4}-\d{2}-\d{2}$/.test(retentionTrimmed) && !isNaN(new Date(retentionTrimmed)))) {
+        return res.status(400).json({ error: 'retention_due must be a valid date in YYYY-MM-DD format.' });
+    }
+
     const query = `
         UPDATE files 
-        SET title = ?, category = ?, type = ?, physical_location = ?, digital_path = ?, is_classified = ?, updated_at = CURRENT_TIMESTAMP 
+        SET title = ?, category = ?, type = ?, physical_location = ?, digital_path = ?, is_classified = ?${touchRetention ? ', retention_due = ?' : ''}, updated_at = CURRENT_TIMESTAMP 
         WHERE id = ?
     `;
+    const queryParams = [title.trim(), category, type, physical_location || '', digital_path || '', classifiedValue];
+    if (touchRetention) queryParams.push(retentionTrimmed || null);
+    queryParams.push(fileId);
 
     db.get(`SELECT id, file_code, is_classified FROM files WHERE id = ?`, [fileId], (err, current) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!current) return res.status(404).json({ error: 'File not found.' });
 
         const applyUpdate = (confirmedByName) => {
-            db.run(query, [title.trim(), category, type, physical_location || '', digital_path || '', classifiedValue, fileId], function(err) {
+            db.run(query, queryParams, function(err) {
                 if (err) {
                     console.error("PUT Error:", err.message);
                     return res.status(500).json({ error: err.message });
@@ -971,6 +1001,57 @@ app.patch('/api/files/:id/classify', requireAdmin, (req, res) => {
             return requireDeclassifyPin(req, res, pin_code, applyToggle);
         }
         applyToggle(null);
+    });
+});
+
+// POST /api/files/:id/dispose - Formally dispose of a record (Admin Only)
+// The record STAYS in the registry as status DISPOSED so its metadata and
+// full audit history survive. Quick-PIN is ALWAYS required (this is a
+// destructive records decision) and checked-out custody must return first.
+app.post('/api/files/:id/dispose', requireAdmin, (req, res) => {
+    const fileId = parseInt(req.params.id, 10);
+    const { pin_code, notes } = req.body || {};
+
+    db.get(`SELECT id, file_code, title, status, retention_due FROM files WHERE id = ?`, [fileId], (err, file) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!file) return res.status(404).json({ error: 'File not found.' });
+
+        if (file.status === 'DISPOSED') {
+            return res.status(409).json({ error: `"${file.file_code}" has already been disposed.`, code: 'ALREADY_DISPOSED' });
+        }
+        if (file.status === 'CHECKED_OUT') {
+            return res.status(409).json({
+                error: `"${file.file_code}" is CHECKED OUT and cannot be disposed. Check it in first.`,
+                code: 'CHECKED_OUT'
+            });
+        }
+
+        const performDispose = (confirmedByName) => {
+            const operator = req.user ? req.user.full_name : 'Administrator';
+            const dueNote = file.retention_due ? `· retention due ${file.retention_due}` : '· no retention date set';
+            const extra = (notes && typeof notes === 'string' && notes.trim()) ? `· ${notes.trim().slice(0, 200)}` : '';
+            const note = `Record disposed of, removed from active holdings ${dueNote} ${extra} — 🔒 Quick-PIN confirmed by ${confirmedByName}`;
+
+            db.run(`UPDATE files SET status = 'DISPOSED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [fileId], function(updateErr) {
+                if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+                db.run(
+                    `INSERT INTO file_logs (file_id, user_name, action, notes, file_code) VALUES (?, ?, 'DISPOSE', ?, ?)`,
+                    [fileId, operator, note, file.file_code],
+                    (logErr) => {
+                        if (logErr) console.error('DISPOSE Log Error:', logErr.message);
+                        res.json({
+                            success: true,
+                            status: 'DISPOSED',
+                            message: `"${file.file_code}" disposed of. Metadata and audit history retained.`,
+                            pin_confirmed_by: confirmedByName
+                        });
+                    }
+                );
+            });
+        };
+
+        return requireDeclassifyPin(req, res, pin_code, performDispose, 'Disposing of a record');
     });
 });
 
@@ -1042,6 +1123,13 @@ app.post('/api/files/action', (req, res) => {
         db.get(`SELECT id, file_code, title, status, is_classified FROM files WHERE file_code = ?`, [trimmedCode], (err, file) => {
             if (err || !file) {
                 return res.status(404).json({ error: `File code "${trimmedCode}" not found in registry.` });
+            }
+
+            if (action === 'CHECK_OUT' && file.status === 'DISPOSED') {
+                return res.status(400).json({
+                    error: `File "${file.file_code}" has been disposed and is no longer part of the active holdings.`,
+                    code: 'DISPOSED'
+                });
             }
 
             if (action === 'CHECK_OUT' && file.status === 'CHECKED_OUT') {

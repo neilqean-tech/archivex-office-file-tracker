@@ -564,6 +564,18 @@
                 </div>
             </section>
 
+            <!-- Disposal Due Alert Banner (appears only when records are past retention) -->
+            <section id="disposalBanner" onclick="gotoDisposalFilter()" class="hidden bg-rose-50 p-4 rounded-xl border border-rose-200 shadow-sm items-center justify-between gap-3 cursor-pointer hover:bg-rose-100 transition">
+                <div class="flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-xl flex-none">🗑</span>
+                    <div>
+                        <div class="text-sm font-bold text-rose-800"><span id="disposalBannerCount">0</span> record(s) past their retention period</div>
+                        <div class="text-xs text-rose-600 font-medium">Ready for disposal review — click to review them in the registry</div>
+                    </div>
+                </div>
+                <span class="text-xs font-bold text-rose-700 whitespace-nowrap">Review →</span>
+            </section>
+
             <!-- Department Distribution Bar & Format Badges -->
             <section class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-3">
                 <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
@@ -686,7 +698,7 @@
                         </div>
 
                         <!-- Quick Filter Tabs -->
-                        <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg text-xs font-semibold">
+                        <div class="flex flex-wrap items-center space-x-1 bg-slate-100 p-1 rounded-lg text-xs font-semibold">
                             <button onclick="setStatusFilter('')" id="filterTabAll" class="px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-xs transition">All</button>
                             <button onclick="setStatusFilter('AVAILABLE')" id="filterTabAvailable" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition">Available</button>
                             <button onclick="setStatusFilter('CHECKED_OUT')" id="filterTabCirculating" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition">Circulating</button>
@@ -695,6 +707,12 @@
                             </button>
                             <button onclick="toggleFilterOverdue()" id="filterTabOverdue" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-rose-600 transition flex items-center gap-1">
                                 <span>⏰ Overdue</span>
+                            </button>
+                            <button onclick="toggleFilterDisposal()" id="filterTabDisposal" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-orange-600 transition flex items-center gap-1" title="Records whose retention period has ended">
+                                <span>🗑 Disposal Due</span>
+                            </button>
+                            <button onclick="toggleFilterDisposed()" id="filterTabDisposed" class="px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center gap-1" title="Records already disposed of">
+                                <span>🗄 Disposed</span>
                             </button>
                         </div>
 
@@ -760,7 +778,7 @@
 
                 <!-- Table Content Container (Full Width) -->
                 <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse min-w-[760px]">
+                    <table class="w-full text-left border-collapse min-w-[860px]">
                         <thead>
                             <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                                 <th onclick="setFilesSort('code')" class="py-3 px-4 cursor-pointer select-none hover:text-sky-700" title="Sort by code">Code & QR <span class="sort-ind text-slate-300" data-sk="files:code">↕</span></th>
@@ -769,6 +787,7 @@
                                 <th onclick="setFilesSort('location')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by location">Storage Location <span class="sort-ind text-slate-300" data-sk="files:location">↕</span></th>
                                 <th onclick="setFilesSort('classified')" class="py-3 px-2 text-center cursor-pointer select-none hover:text-sky-700" title="Sort by access level">Security <span class="sort-ind text-slate-300" data-sk="files:classified">↕</span></th>
                                 <th onclick="setFilesSort('status')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by status">Status <span class="sort-ind text-slate-300" data-sk="files:status">↕</span></th>
+                                <th onclick="setFilesSort('retention')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by retention date">Retention <span class="sort-ind text-slate-300" data-sk="files:retention">↕</span></th>
                                 <th class="py-3 px-4 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -1198,6 +1217,13 @@
                     </label>
                 </div>
 
+                <!-- Retention Schedule -->
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">Retention Until <span class="font-normal text-slate-400">(optional — records disposal review date)</span></label>
+                    <input type="date" id="formRetention" class="w-full p-2.5 border border-slate-300 rounded-lg">
+                    <p class="text-[10px] text-slate-400 mt-1">Once this date passes the record appears under “Disposal Due” on the dashboard and in the registry filters.</p>
+                </div>
+
                 <!-- Staff Recorder -->
                 <div>
                     <label class="block font-semibold text-slate-700 mb-1">Operating Staff Name</label>
@@ -1507,6 +1533,8 @@
         let activeStatusFilter = '';
         let activeClassifiedFilter = '';
         let activeOverdueFilter = '';
+        let activeDisposalFilter = '';   // '1' = retention period ended (due for disposal)
+        let activeDisposedFilter = '';   // '1' = status = DISPOSED
 
         // --- Pagination state (client-side page numbers below long tables) ---
         const REGISTRY_PAGE_SIZE = 10;
@@ -1633,6 +1661,15 @@
                 document.getElementById('statVelocity').innerText = stats.today_actions || 0;
                 renderActivityChart(); // keep the 6-month activity bars fresh alongside the KPIs
 
+                // Disposal-due alert banner (hidden when nothing is due)
+                const disposalBanner = document.getElementById('disposalBanner');
+                if (disposalBanner) {
+                    const due = stats.disposal_due_files || 0;
+                    document.getElementById('disposalBannerCount').innerText = due;
+                    disposalBanner.classList.toggle('hidden', due === 0);
+                    disposalBanner.classList.toggle('flex', due > 0);
+                }
+
                 // Tab Badge indicators
                 document.getElementById('tabBadgeRegistry').innerText = stats.total_files || 0;
                 const circBadge = document.getElementById('tabBadgeCirculation');
@@ -1727,6 +1764,8 @@
             if (activeStatusFilter) params.append('status', activeStatusFilter);
             if (activeClassifiedFilter !== '') params.append('classified', activeClassifiedFilter);
             if (activeOverdueFilter === '1') params.append('overdue', '1');
+            if (activeDisposalFilter === '1') params.append('disposal', '1');
+            if (activeDisposedFilter === '1') params.append('status', 'DISPOSED');
 
             try {
                 const res = await apiFetch(`/api/files?${params.toString()}`);
@@ -1779,6 +1818,7 @@
                        : k === 'location' ? (f.physical_location || '')
                        : k === 'classified' ? (f.is_classified ? 1 : 0)
                        : k === 'status' ? (f.status || '')
+                       : k === 'retention' ? (f.retention_due || '')
                        : '';
             return list.slice().sort((a, b) => cmpVal(val(a), val(b)) * dir);
         }
@@ -1822,7 +1862,9 @@
             tbody.innerHTML = pageRows.map(f => {
                 const isAvail = f.status === 'AVAILABLE';
                 const odDays = overdueDays(f);
-                const statusBadge = isAvail
+                const statusBadge = f.status === 'DISPOSED'
+                    ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-semibold border border-slate-200"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Disposed</span>`
+                    : isAvail
                     ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Available</span>`
                     : odDays > 0
                     ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 font-bold border border-rose-200"><span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> Overdue ${odDays}d</span>`
@@ -1835,6 +1877,19 @@
                 const typeColor = f.type === 'PHYSICAL' ? 'bg-blue-50 text-blue-700 border-blue-200'
                                : f.type === 'DIGITAL' ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
                                : 'bg-purple-50 text-purple-700 border-purple-200';
+
+                // Retention / disposal cell: date + countdown warning (if any)
+                let retentionCell = '<span class="text-slate-400">—</span>';
+                if (f.retention_due) {
+                    let chip = '';
+                    if (f.status !== 'DISPOSED') {
+                        const daysLeft = Math.ceil((new Date(f.retention_due + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000);
+                        if (daysLeft < 0) chip = `<div class="text-[10px] font-bold text-rose-600 mt-0.5">⚠ ${-daysLeft}d past due</div>`;
+                        else if (daysLeft === 0) chip = `<div class="text-[10px] font-bold text-rose-600 mt-0.5">⚠ Due today</div>`;
+                        else if (daysLeft <= 30) chip = `<div class="text-[10px] font-bold text-amber-600 mt-0.5">Due in ${daysLeft}d</div>`;
+                    }
+                    retentionCell = `<div class="font-mono text-slate-600">${f.retention_due}</div>${chip}`;
+                }
 
                 return `
                     <tr class="${odDays > 0 ? 'bg-rose-50/40 ' : ''}hover:bg-slate-50/80 transition group">
@@ -1903,13 +1958,19 @@
                             ${dueLine}
                         </td>
 
+                        <!-- Retention / Disposal -->
+                        <td class="py-3 px-3 text-xs">
+                            ${retentionCell}
+                        </td>
+
                         <!-- Quick Inline Actions -->
                         <td class="py-3 px-4 text-right whitespace-nowrap">
                             <div class="flex items-center justify-end space-x-1">
                                 <!-- Quick Issue / Return (Switches to Circulation Tab) -->
+                                ${f.status !== 'DISPOSED' ? `
                                 <button onclick="quickSelectAction('${f.file_code}', '${isAvail ? 'CHECK_OUT' : 'CHECK_IN'}')" class="px-2.5 py-1 rounded font-semibold text-[11px] ${isAvail ? 'text-amber-700 hover:bg-amber-50' : 'text-emerald-700 hover:bg-emerald-50'} transition">
                                     ${isAvail ? 'Issue →' : '← Return'}
-                                </button>
+                                </button>` : ''}
 
                                 <!-- Print custody history slip -->
                                 <button onclick="printCustodySlip(${f.id})" class="p-1 text-slate-500 hover:text-sky-600 rounded hover:bg-slate-100" title="Print Custody History Slip">
@@ -1925,6 +1986,14 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                     </svg>
                                 </button>
+
+                                <!-- Dispose (formal disposal — Quick-PIN gated server-side) -->
+                                ${f.status !== 'DISPOSED' ? `
+                                <button onclick="disposeFileRecord(${f.id}, '${f.file_code}')" class="p-1 text-slate-400 hover:text-orange-600 rounded hover:bg-slate-100" title="Dispose of Record (keeps metadata + audit history)">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+                                    </svg>
+                                </button>` : ''}
 
                                 <!-- Delete with Classified Safeguard -->
                                 <button onclick="deleteFileRecord(${f.id}, '${f.file_code}', ${f.is_classified || 0})" class="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-slate-100" title="Delete Document">
@@ -2142,13 +2211,13 @@
                     <td>${escapeHtml(f.category || '')}</td>
                     <td>${f.type}</td>
                     <td>${escapeHtml(f.physical_location || '')}</td>
-                    <td>${f.status === 'AVAILABLE' ? 'Available' : (od ? `<span class="od">CHECKED OUT — ${od}d OVERDUE</span>` : 'Checked Out')}</td>
+                    <td>${f.status === 'DISPOSED' ? 'Disposed (retention ended)' : f.status === 'AVAILABLE' ? 'Available' : (od ? `<span class="od">CHECKED OUT — ${od}d OVERDUE</span>` : 'Checked Out')}</td>
                     <td>${escapeHtml(f.borrower_name || '')}${f.due_date ? `<br><span class="${od ? 'od' : 'muted'}">due ${f.due_date}</span>` : ''}</td>
                     <td>${f.is_classified === 1 ? '<span class="od">CLASSIFIED</span>' : 'Public'}</td>
                 </tr>`;
             }).join('');
 
-            const filtered = activeStatusFilter || activeClassifiedFilter || activeOverdueFilter === '1';
+            const filtered = activeStatusFilter || activeClassifiedFilter || activeOverdueFilter === '1' || activeDisposalFilter === '1' || activeDisposedFilter === '1';
             openPrintWindow('ARCHIVEX — Registry Inventory Report', `
                 <div class="brand-row">
                     <div>
@@ -2200,7 +2269,7 @@
                 </div>
 
                 <table class="kv">
-                    <tr><td class="k">Document Code</td><td class="mono">${escapeHtml(f.file_code)}</td><td class="k">Status</td><td>${f.status === 'AVAILABLE' ? 'Available (in storage)' : (od ? `<span class="od">CHECKED OUT — ${od}d OVERDUE</span>` : 'Checked Out')}</td></tr>
+                    <tr><td class="k">Document Code</td><td class="mono">${escapeHtml(f.file_code)}</td><td class="k">Status</td><td>${f.status === 'DISPOSED' ? 'Disposed (retention ended)' : f.status === 'AVAILABLE' ? 'Available (in storage)' : (od ? `<span class="od">CHECKED OUT — ${od}d OVERDUE</span>` : 'Checked Out')}</td></tr>
                     <tr><td class="k">Title</td><td colspan="3">${escapeHtml(f.title)}</td></tr>
                     <tr><td class="k">Department</td><td>${escapeHtml(f.category || '')}</td><td class="k">Format</td><td>${f.type}</td></tr>
                     <tr><td class="k">Location</td><td>${escapeHtml(f.physical_location || '—')}</td><td class="k">Access</td><td>${f.is_classified === 1 ? '<span class="od">CLASSIFIED</span>' : 'Public'}</td></tr>
@@ -2418,7 +2487,7 @@
                 <button type="button" onclick="quickFindGo(${i})" class="w-full text-left px-3 py-2 rounded-lg flex items-center gap-3 transition ${i === quickFindIndex ? 'bg-sky-50 ring-1 ring-sky-200' : 'hover:bg-slate-50'}">
                     <span class="font-mono font-bold text-sky-700 text-xs flex-none">${escapeHtml(f.file_code)}</span>
                     <span class="flex-1 text-xs text-slate-700 truncate">${escapeHtml(f.title)}</span>
-                    <span class="text-[10px] font-semibold flex-none ${f.status === 'AVAILABLE' ? 'text-emerald-600' : 'text-amber-600'}">${f.status === 'AVAILABLE' ? 'Available' : 'Checked Out'}</span>
+                    <span class="text-[10px] font-semibold flex-none ${f.status === 'AVAILABLE' ? 'text-emerald-600' : f.status === 'DISPOSED' ? 'text-slate-500' : 'text-amber-600'}">${f.status === 'AVAILABLE' ? 'Available' : f.status === 'DISPOSED' ? 'Disposed' : 'Checked Out'}</span>
                 </button>`).join('');
         }
 
@@ -2439,15 +2508,31 @@
             const f = quickFindItems[i];
             if (!f) return;
             closeQuickFind();
-            // Set the search term BEFORE any tab switch / filter reset triggers a
-            // reload, so every load that fires already carries the new filter
+            // Set the search term FIRST, then clear every filter that could hide
+            // the record — resets happen silently so only one load fires
             document.getElementById('searchInput').value = f.file_code;
             filesPage = 1;
-            if (activeStatusFilter) setStatusFilter('');
-            if (activeClassifiedFilter === '1') toggleFilterClassified();
-            if (activeOverdueFilter === '1') toggleFilterOverdue(true);
+            clearAllRegistryFilters();
             switchTab('registry');
             loadFiles();
+        }
+
+        // Reset every registry filter (chips + dropdowns) without triggering a load
+        function clearAllRegistryFilters() {
+            activeStatusFilter = '';
+            activeClassifiedFilter = '';
+            activeOverdueFilter = '';
+            activeDisposalFilter = '';
+            activeDisposedFilter = '';
+            const cat = document.getElementById('filterCategory'); if (cat) cat.value = '';
+            const typ = document.getElementById('filterType'); if (typ) typ.value = '';
+            document.getElementById('filterTabAll').className = 'px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-xs font-bold';
+            document.getElementById('filterTabAvailable').className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900';
+            document.getElementById('filterTabCirculating').className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900';
+            document.getElementById('filterTabClassified').className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-rose-600 flex items-center gap-1';
+            document.getElementById('filterTabOverdue').className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-rose-600 flex items-center gap-1';
+            document.getElementById('filterTabDisposal').className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-orange-600 flex items-center gap-1';
+            document.getElementById('filterTabDisposed').className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 flex items-center gap-1';
         }
 
         // Global shortcut: Ctrl+K opens the palette (full sessions only)
@@ -2525,6 +2610,12 @@
         // --- FILTER TOGGLES ---
         function setStatusFilter(status) {
             activeStatusFilter = status;
+            // "Disposed" is itself a status filter — the two can never combine
+            if (status && activeDisposedFilter === '1') {
+                activeDisposedFilter = '';
+                const dBtn = document.getElementById('filterTabDisposed');
+                if (dBtn) dBtn.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 flex items-center gap-1';
+            }
             filesPage = 1; // new filter starts back at page 1
             document.getElementById('filterTabAll').className = status === '' ? 'px-2.5 py-1 rounded-md bg-white text-slate-900 shadow-xs font-bold' : 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900';
             document.getElementById('filterTabAvailable').className = status === 'AVAILABLE' ? 'px-2.5 py-1 rounded-md bg-white text-emerald-700 shadow-xs font-bold' : 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900';
@@ -2559,6 +2650,44 @@
         // Dashboard "Overdue" card → jump straight to the filtered registry
         function gotoOverdueFilter() {
             if (activeOverdueFilter !== '1') toggleFilterOverdue(true);
+            switchTab('registry');
+        }
+
+        function toggleFilterDisposal() {
+            activeDisposalFilter = activeDisposalFilter === '1' ? '' : '1';
+            filesPage = 1; // new filter starts back at page 1
+            const btn = document.getElementById('filterTabDisposal');
+            if (activeDisposalFilter === '1') {
+                btn.className = 'px-2.5 py-1 rounded-md bg-orange-600 text-white shadow-xs font-bold flex items-center gap-1';
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-orange-600 flex items-center gap-1';
+            }
+            loadFiles();
+        }
+
+        function toggleFilterDisposed() {
+            activeDisposedFilter = activeDisposedFilter === '1' ? '' : '1';
+            filesPage = 1; // new filter starts back at page 1
+            if (activeDisposedFilter === '1') {
+                // Disposed IS a status — clear the status tabs so two status
+                // filters can never collide in the query string
+                activeStatusFilter = '';
+                document.getElementById('filterTabAll').className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900';
+                document.getElementById('filterTabAvailable').className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900';
+                document.getElementById('filterTabCirculating').className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900';
+            }
+            const btn = document.getElementById('filterTabDisposed');
+            if (activeDisposedFilter === '1') {
+                btn.className = 'px-2.5 py-1 rounded-md bg-slate-700 text-white shadow-xs font-bold flex items-center gap-1';
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-md text-slate-600 hover:text-slate-900 flex items-center gap-1';
+            }
+            loadFiles();
+        }
+
+        // Dashboard "Disposal Due" banner → jump straight to the filtered registry
+        function gotoDisposalFilter() {
+            if (activeDisposalFilter !== '1') toggleFilterDisposal();
             switchTab('registry');
         }
 
@@ -2773,6 +2902,7 @@
                             : l.action === 'CHECK_IN' ? chip('bg-emerald-50 text-emerald-700 border-emerald-200', 'bg-emerald-500', 'CHECK IN')
                             : l.action === 'REGISTER' ? chip('bg-sky-50 text-sky-700 border-sky-200', 'bg-sky-500', 'REGISTER')
                             : l.action === 'DELETE' ? chip('bg-rose-50 text-rose-700 border-rose-200', 'bg-rose-500', 'DELETE')
+                            : l.action === 'DISPOSE' ? chip('bg-orange-50 text-orange-700 border-orange-200', 'bg-orange-500', 'DISPOSE')
                             : chip('bg-slate-100 text-slate-600 border-slate-200', 'bg-slate-500', l.action);
 
                 const timeFormatted = new Date(l.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -2827,6 +2957,7 @@
                             : l.action === 'CHECK_IN' ? chip('bg-emerald-50 text-emerald-700 border-emerald-200', 'bg-emerald-500', 'CHECK IN')
                             : l.action === 'REGISTER' ? chip('bg-sky-50 text-sky-700 border-sky-200', 'bg-sky-500', 'REGISTER')
                             : l.action === 'DELETE' ? chip('bg-rose-50 text-rose-700 border-rose-200', 'bg-rose-500', 'DELETE')
+                            : l.action === 'DISPOSE' ? chip('bg-orange-50 text-orange-700 border-orange-200', 'bg-orange-500', 'DISPOSE')
                             : chip('bg-slate-100 text-slate-700 border-slate-200', 'bg-slate-500', l.action);
 
                 const dateObj = new Date(l.created_at);
@@ -2947,6 +3078,53 @@
             }
         }
 
+        // 🗑 Formal disposal: status → DISPOSED (record + audit history KEPT).
+        // Server ALWAYS demands a Quick-PIN for this — two-step, like deletion.
+        async function disposeFileRecord(id, code, pin, showError) {
+            if (!pin && !showError) {
+                const known = allFiles.find(f => String(f.id) === String(id));
+                const ok = confirm(`🗑 DISPOSAL (Step 1):\nMove record "${code}" to DISPOSED?\n\n• Metadata and the FULL audit history are kept (status becomes DISPOSED).\n• The record leaves active holdings and can no longer be checked out.\n• ${known && known.retention_due ? 'Retention date: ' + known.retention_due : 'No retention date is set on this record.'}\n\nQuick-PIN confirmation follows.`);
+                if (!ok) return;
+            }
+
+            try {
+                const res = await apiFetch(`/api/files/${id}/dispose`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin_code: pin || undefined })
+                });
+                const result = await res.json().catch(() => ({}));
+
+                // 🔒 disposal is PIN-gated server-side → open PIN modal & retry
+                if (!res.ok && result.code === 'PIN_REQUIRED' && !showError) {
+                    const known = allFiles.find(f => String(f.id) === String(id));
+                    return openPinConfirmModal({
+                        fileLabel: code + (known && known.title ? ' — ' + known.title : ''),
+                        title: 'Dispose of Record',
+                        message: 'This formally disposes of the record (status → DISPOSED). Its metadata and audit history are retained, but it leaves the active holdings for good. Enter your Quick-PIN to confirm.',
+                        confirmLabel: 'Confirm Disposal',
+                        onConfirm: (p, se) => disposeFileRecord(id, code, p, se)
+                    });
+                }
+
+                if (!res.ok) {
+                    const msg = result.error || 'Disposal failed';
+                    if (showError) return showError(msg); // inline in the PIN modal (stays open)
+                    if (res.status !== 401) showToast(msg, 'error');
+                    return;
+                }
+
+                if (showError) closePinConfirmModal();
+                showToast(result.message || 'Record disposed', 'success');
+                loadFiles();
+                fetchDashboardStats();
+                loadLogs();
+            } catch (err) {
+                if (showError) showError('Disposal failed');
+                else showToast('Disposal failed', 'error');
+            }
+        }
+
         // --- MODAL FORM LOGIC ---
         function openRegisterModal() {
             if (!isAdminSession()) {
@@ -2975,6 +3153,7 @@
             document.getElementById('formLocation').value = file.physical_location || '';
             document.getElementById('formDigitalPath').value = file.digital_path || '';
             document.getElementById('formClassified').checked = (file.is_classified === 1);
+            document.getElementById('formRetention').value = file.retention_due || '';
 
             document.getElementById('modalTitle').innerText = 'Edit Document Metadata';
             document.getElementById('modalSubmitBtn').innerText = 'Update Document';
@@ -3027,6 +3206,7 @@
                 physical_location: document.getElementById('formLocation').value,
                 digital_path: document.getElementById('formDigitalPath').value.trim(),
                 is_classified: document.getElementById('formClassified').checked,
+                retention_due: document.getElementById('formRetention').value || '',
                 user_name: document.getElementById('formStaffName').value.trim() || 'Officer'
             };
             if (pin) data.pin_code = pin;
