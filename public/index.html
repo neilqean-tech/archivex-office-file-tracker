@@ -776,6 +776,18 @@
                     </div>
                 </div>
 
+                <!-- Sort buttons: one per column — click 1× A→Z, 2× Z→A, 3× back to normal order -->
+                <div class="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-1.5">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Sort</span>
+                    <button id="filesSortBtn-code" onclick="setFilesSort('code')" class="px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer">Code</button>
+                    <button id="filesSortBtn-title" onclick="setFilesSort('title')" class="px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer">Title</button>
+                    <button id="filesSortBtn-category" onclick="setFilesSort('category')" class="px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer">Dept</button>
+                    <button id="filesSortBtn-location" onclick="setFilesSort('location')" class="px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer">Location</button>
+                    <button id="filesSortBtn-classified" onclick="setFilesSort('classified')" class="px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer">Security</button>
+                    <button id="filesSortBtn-status" onclick="setFilesSort('status')" class="px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer">Status</button>
+                    <button id="filesSortBtn-retention" onclick="setFilesSort('retention')" class="px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer">Retention</button>
+                </div>
+
                 <!-- Table Content Container (Full Width) -->
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse min-w-[860px]">
@@ -946,7 +958,15 @@
                         <p class="text-xs text-slate-500 mt-0.5">Chronological record of registrations, check-ins, check-outs, and security classification changes</p>
                     </div>
 
-                    <div class="flex items-center gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <!-- Calendar date range: jump straight to a period instead of scrolling -->
+                        <div class="flex items-center gap-1.5 bg-slate-100 rounded-lg p-1">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide pl-1">From</span>
+                            <input type="date" id="logDateFrom" onchange="setLogDateFilter()" title="Show entries from this date onward" class="py-1 px-1.5 text-xs border border-slate-300 rounded bg-white">
+                            <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">To</span>
+                            <input type="date" id="logDateTo" onchange="setLogDateFilter()" title="Show entries up to and including this date" class="py-1 px-1.5 text-xs border border-slate-300 rounded bg-white">
+                            <button onclick="clearLogDateFilter()" title="Clear the date filter" class="px-1.5 py-1 text-slate-400 hover:text-rose-600 transition cursor-pointer">✕</button>
+                        </div>
                         <select id="logActionFilter" onchange="logsPage = 1; filterLogs()" class="py-1.5 px-3 text-xs border border-slate-300 rounded-lg bg-white">
                             <option value="">All Actions</option>
                             <option value="CHECK_OUT">Check Outs Only</option>
@@ -962,6 +982,17 @@
                             <span>⬇</span> CSV
                         </button>
                     </div>
+                </div>
+
+                <!-- Sort buttons: one per column — click 1× A→Z, 2× Z→A, 3× back to normal order -->
+                <div class="px-5 py-3 border-b border-slate-100 flex flex-wrap items-center gap-1.5">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Sort</span>
+                    <button id="logsSortBtn-created" onclick="setLogsSort('created')" class="px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer">Date</button>
+                    <button id="logsSortBtn-action" onclick="setLogsSort('action')" class="px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer">Action</button>
+                    <button id="logsSortBtn-code" onclick="setLogsSort('code')" class="px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer">Document</button>
+                    <button id="logsSortBtn-category" onclick="setLogsSort('category')" class="px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer">Department</button>
+                    <button id="logsSortBtn-user" onclick="setLogsSort('user')" class="px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer">Staff</button>
+                    <button id="logsSortBtn-notes" onclick="setLogsSort('notes')" class="px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer">Notes</button>
                 </div>
 
                 <!-- Audit Table (Full Width) -->
@@ -1778,18 +1809,22 @@
             }
         }
 
-        // --- SORTING: click a column header to toggle asc/desc ---
+        // --- SORTING: click a column header OR its sort button to cycle A→Z, Z→A, natural order ---
         function setFilesSort(key) {
-            if (filesSort.key === key) filesSort.dir = filesSort.dir === 'asc' ? 'desc' : 'asc';
-            else { filesSort.key = key; filesSort.dir = 'asc'; }
+            if (filesSort.key === key) {
+                if (filesSort.dir === 'asc') filesSort.dir = 'desc';
+                else { filesSort.key = ''; filesSort.dir = 'desc'; } // third click: natural order
+            } else { filesSort.key = key; filesSort.dir = 'asc'; }
             filesPage = 1;
             updateSortIndicators('files');
             renderTable(allFiles);
         }
 
         function setLogsSort(key) {
-            if (logsSort.key === key) logsSort.dir = logsSort.dir === 'asc' ? 'desc' : 'asc';
-            else { logsSort.key = key; logsSort.dir = 'asc'; }
+            if (logsSort.key === key) {
+                if (logsSort.dir === 'asc') logsSort.dir = 'desc';
+                else { logsSort.key = ''; logsSort.dir = 'desc'; } // third click: natural order
+            } else { logsSort.key = key; logsSort.dir = 'asc'; }
             logsPage = 1;
             updateSortIndicators('logs');
             filterLogs();
@@ -1801,6 +1836,40 @@
                 const active = el.dataset.sk.split(':')[1] === state.key;
                 el.textContent = active ? (state.dir === 'asc' ? '▲' : '▼') : '↕';
                 el.className = 'sort-ind select-none ' + (active ? 'text-sky-600' : 'text-slate-300');
+            });
+            renderSortButtons(prefix);
+        }
+
+        // --- Explicit sort buttons (one per column) kept in sync with header clicks ---
+        const FILES_SORT_FIELDS = [
+            { key: 'code', label: 'Code' },
+            { key: 'title', label: 'Title' },
+            { key: 'category', label: 'Dept' },
+            { key: 'location', label: 'Location' },
+            { key: 'classified', label: 'Security' },
+            { key: 'status', label: 'Status' },
+            { key: 'retention', label: 'Retention' }
+        ];
+        const LOGS_SORT_FIELDS = [
+            { key: 'created', label: 'Date' },
+            { key: 'action', label: 'Action' },
+            { key: 'code', label: 'Document' },
+            { key: 'category', label: 'Department' },
+            { key: 'user', label: 'Staff' },
+            { key: 'notes', label: 'Notes' }
+        ];
+        const SORT_BTN_IDLE = 'px-2.5 py-1 rounded-md text-[11px] font-bold border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition cursor-pointer';
+        const SORT_BTN_ACTIVE = 'px-2.5 py-1 rounded-md text-[11px] font-bold border border-sky-600 bg-sky-600 text-white shadow-sm transition cursor-pointer';
+
+        function renderSortButtons(prefix) {
+            const state = prefix === 'files' ? filesSort : logsSort;
+            const fields = prefix === 'files' ? FILES_SORT_FIELDS : LOGS_SORT_FIELDS;
+            fields.forEach(f => {
+                const btn = document.getElementById(prefix + 'SortBtn-' + f.key);
+                if (!btn) return;
+                const active = state.key === f.key;
+                btn.textContent = f.label + (active ? (state.dir === 'asc' ? ' ▲' : ' ▼') : '');
+                btn.className = active ? SORT_BTN_ACTIVE : SORT_BTN_IDLE;
             });
         }
 
@@ -2925,9 +2994,34 @@
             }).join('');
         }
 
+        // --- Calendar date-range filter (Audit) ---
+        function setLogDateFilter() {
+            logsPage = 1; // new range starts back at page 1
+            filterLogs();
+        }
+
+        function clearLogDateFilter() {
+            document.getElementById('logDateFrom').value = '';
+            document.getElementById('logDateTo').value = '';
+            logsPage = 1;
+            filterLogs();
+        }
+
         function getFilteredLogs() {
             const filterAction = document.getElementById('logActionFilter').value;
-            return filterAction ? allLogs.filter(l => l.action === filterAction) : allLogs;
+            const from = document.getElementById('logDateFrom').value;
+            const to = document.getElementById('logDateTo').value;
+            let list = allLogs;
+            if (filterAction) list = list.filter(l => l.action === filterAction);
+            if (from || to) {
+                list = list.filter(l => {
+                    const d = String(l.created_at || '').replace('T', ' ').slice(0, 10); // YYYY-MM-DD
+                    if (from && d < from) return false;
+                    if (to && d > to) return false;
+                    return true;
+                });
+            }
+            return list;
         }
 
         function filterLogs() {
