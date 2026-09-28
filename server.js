@@ -1402,12 +1402,12 @@ app.get('/view/:code', (req, res) => {
                             </div>
                             <p id="gateErr" class="hidden text-[11px] font-semibold text-rose-600"></p>
                         </div>
-                        <a id="digitalLink" class="hidden w-full py-3 bg-sky-600 hover:bg-sky-700 text-white text-center rounded-xl font-bold text-sm shadow-md shadow-sky-600/20 transition">
+                        <a id="digitalLink" target="_blank" class="hidden w-full py-3 bg-sky-600 hover:bg-sky-700 text-white text-center rounded-xl font-bold text-sm shadow-md shadow-sky-600/20 transition">
                             Open Digital Document ↗
                         </a>
                     ` : hasDigital && href ? `
                         <div class="pt-2 space-y-2">
-                            <a href="${escapeHtml(href)}" ${isUrl ? 'target="_blank"' : ''} class="block w-full py-3 bg-sky-600 hover:bg-sky-700 text-white text-center rounded-xl font-bold text-sm shadow-md shadow-sky-600/20 transition">
+                            <a href="${escapeHtml(href)}" target="_blank" class="block w-full py-3 bg-sky-600 hover:bg-sky-700 text-white text-center rounded-xl font-bold text-sm shadow-md shadow-sky-600/20 transition">
                                 Open Digital Document ↗
                             </a>
                             <p class="text-[10px] text-slate-400 text-center font-mono truncate">${escapeHtml(rawPath)}</p>
@@ -1495,6 +1495,72 @@ app.get('/view/:code', (req, res) => {
             </html>
         `);
     });
+});
+
+// ==========================================
+// DIGITAL COPY SERVING + BRANDED NOT-FOUND PAGE
+// ==========================================
+
+const DOCS_ROOT = path.join(__dirname, 'docs');
+
+// Branded replacement for Express' raw white "Cannot GET /..." error page
+function docNotFoundPage(requestPath) {
+    return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>File Not Found - ARCHIVEX</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+        </head>
+        <body class="bg-slate-100 p-6 flex items-center justify-center min-h-screen font-sans text-slate-800">
+            <div class="max-w-md w-full bg-white p-7 rounded-2xl shadow-xl border border-slate-200 space-y-4 text-center">
+                <div class="text-4xl">📂</div>
+                <h2 class="text-lg font-bold">Digital copy not found</h2>
+                <p class="text-xs text-slate-500">No file is stored on this server at:</p>
+                <p class="font-mono text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2 break-all">${escapeHtml(requestPath)}</p>
+                <div class="text-xs text-slate-500 text-left bg-sky-50 border border-sky-100 rounded-xl p-3 space-y-1.5">
+                    <p class="font-bold text-sky-800">How to make it openable:</p>
+                    <p>1. Copy the real file into the <span class="font-mono font-semibold">docs</span> folder of the ARCHIVEX installation so it matches this path, or</p>
+                    <p>2. Edit the record and enter a full web link (https://...) for cloud storage.</p>
+                </div>
+                <div class="flex gap-2 justify-center pt-1">
+                    <button onclick="history.back()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold transition cursor-pointer">← Go back</button>
+                    <a href="/" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold transition">Open Registry</a>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+}
+
+// Serve digital copies from the project's docs/ folder (path-traversal guarded).
+// "/docs/legal/x.pdf" -> <project>/docs/legal/x.pdf
+// Missing files get the branded page above instead of Express' white error.
+app.get(/^\/docs\/.+$/i, (req, res) => {
+    let rel;
+    try {
+        rel = decodeURIComponent(req.path);
+    } catch (e) {
+        return res.status(400).send(docNotFoundPage(req.path));
+    }
+    const target = path.resolve(DOCS_ROOT, rel.replace(/^\/?docs[\\/]/, ''));
+    if (target !== DOCS_ROOT && !target.startsWith(DOCS_ROOT + path.sep)) {
+        return res.status(403).send(docNotFoundPage(rel));
+    }
+    fs.stat(target, (err, st) => {
+        if (err || !st.isFile()) {
+            return res.status(404).send(docNotFoundPage(rel));
+        }
+        res.sendFile(target);
+    });
+});
+
+// Any other missing file-like request (…/something.ext) also gets the branded
+// page - never Express' raw white "Cannot GET" response.
+app.get(/\.[a-z0-9]{2,5}$/i, (req, res) => {
+    res.status(404).send(docNotFoundPage(req.path));
 });
 
 const PORT = process.env.PORT || 3000;
