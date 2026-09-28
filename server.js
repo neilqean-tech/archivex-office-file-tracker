@@ -4,6 +4,8 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { Readable } = require('stream');
+const csv = require('csv-parser');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -11,7 +13,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'archivex-super-secret-key-2026';
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' })); // roomy enough for CSV bulk imports
 app.use(express.static(path.join(__dirname, 'public')));
 
 const dbPath = path.join(__dirname, 'file_tracker.db');
@@ -766,6 +768,125 @@ app.post('/api/files', requireAdmin, (req, res) => {
 
         res.json({ success: true, id: newId, message: `File ${file_code} successfully registered.` });
     });
+});
+
+// POST /api/files/import - Bulk import records from a CSV upload (Admin Only)
+// Expected header: file_code,title,category,type,physical_location,digital_path
+// Every row is validated; duplicates (in-file or in-registry) are skipped with
+// a reason, and each imported record gets its own REGISTER audit entry.
+app.post('/api/files/import', requireAdmin, (req, res) => {
+    const { csv: csvText } = req.body || {};
+    if (!csvText || typeof csvText !== 'string' || !csvText.trim()) {
+        return res.status(400).json({ error: 'No CSV content received.' });
+    }
+
+    let responded = false;
+    const rows = [];
+    Readable.from([csvText])
+        .pipe(csv())
+        .on('data', (row) => rows.push(row))
+        .on('error', () => {
+            responded = true;
+            res.status(400).json({ error: 'Could not parse CSV. Check for stray quotes or broken lines.' });
+        })
+        .on('end', () => {
+            if (responded) return;
+            if (!rows.length) return res.status(400).json({ error: 'The CSV has no data rows.' });
+
+            // Normalize headers (case/whitespace tolerant)
+            const norm = rows.map(r => {
+                const o = {};
+                Object.keys(r).forEach(k => { o[String(k).trim().toLowerCase().replace(/^\uFEFF/, '')] = r[k]; });
+                return o;
+            });
+
+            const required = ['file_code', 'title', 'category', 'type'];
+            const headerKeys = Object.keys(norm[0]);
+            const missingCols = required.filter(c => !headerKeys.includes(c));
+            if (missingCols.length) {
+                return res.status(400).json({
+                    error: `Missing required column(s): ${missingCols.join(', ')}. Expected header: file_code,title,category,type,physical_location,digital_path`
+                });
+            }
+
+            const VALID_TYPES = ['PHYSICAL', 'DIGITAL', 'HYBRID'];
+            const seen = new Set();
+            const skipped = [];
+            const toImport = [];
+
+            norm.forEach((row, i) => {
+                const line = i + 2; // header occupies line 1
+                const code = String(row.file_code || '').trim().toUpperCase();
+                const title = String(row.title || '').trim();
+                const category = String(row.category || '').trim();
+                const type = String(row.type || '').trim().toUpperCase();
+
+                if (!code && !title && !category) return; // fully blank row: ignore
+                if (!code) return skipped.push({ line, code: '(blank)', reason: 'file_code is required' });
+                if (!title) return skipped.push({ line, code, reason: 'title is required' });
+                if (!category) return skipped.push({ line, code, reason: 'category is required' });
+                if (!VALID_TYPES.includes(type)) return skipped.push({ line, code, reason: `type must be PHYSICAL, DIGITAL or HYBRID (got "${type || '?'}")` });
+                if (seen.has(code)) return skipped.push({ line, code, reason: 'duplicate code inside this file' });
+                seen.add(code);
+                toImport.push({
+                    line, code, title, category, type,
+                    loc: String(row.physical_location || '').trim(),
+                    dig: String(row.digital_path || '').trim()
+                });
+            });
+
+            if (!toImport.length) {
+                return res.status(400).json({ error: 'No valid rows to import.', skipped, total: rows.length });
+            }
+
+            db.all(`SELECT file_code FROM files`, [], (err, existing) => {
+                if (err) return res.status(500).json({ error: err.message });
+                const taken = new Set((existing || []).map(r => String(r.file_code).trim().toUpperCase()));
+                const queue = toImport.filter(r => {
+                    if (taken.has(r.code)) { skipped.push({ line: r.line, code: r.code, reason: 'already in registry' }); return false; }
+                    return true;
+                });
+                if (!queue.length) {
+                    return res.status(400).json({ error: 'Every valid row already exists in the registry.', skipped, total: rows.length });
+                }
+
+                const operator = req.user ? req.user.full_name : 'Administrator';
+                let imported = 0;
+                let idx = 0;
+
+                const finish = () => {
+                    res.json({
+                        success: true,
+                        total: rows.length,
+                        imported,
+                        skipped,
+                        message: `Imported ${imported} record${imported === 1 ? '' : 's'}${skipped.length ? `, skipped ${skipped.length}` : ''}.`
+                    });
+                };
+
+                const next = () => {
+                    if (idx >= queue.length) return finish();
+                    const r = queue[idx++];
+                    db.run(
+                        `INSERT INTO files (file_code, title, category, type, physical_location, digital_path, status) VALUES (?, ?, ?, ?, ?, ?, 'AVAILABLE')`,
+                        [r.code, r.title, r.category, r.type, r.loc, r.dig],
+                        function (e2) {
+                            if (e2) {
+                                skipped.push({ line: r.line, code: r.code, reason: (e2.message || '').includes('UNIQUE') ? 'already in registry' : e2.message });
+                            } else {
+                                imported++;
+                                db.run(
+                                    `INSERT INTO file_logs (file_id, user_name, action, notes, file_code) VALUES (?, ?, 'REGISTER', 'Registered via CSV bulk import', ?)`,
+                                    [this.lastID, operator, r.code]
+                                );
+                            }
+                            next();
+                        }
+                    );
+                };
+                next();
+            });
+        });
 });
 
 // PUT /api/files/:id - Update existing file (Admin Only)

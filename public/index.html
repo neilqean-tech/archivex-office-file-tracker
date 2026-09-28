@@ -589,6 +589,23 @@
                 </div>
             </section>
 
+            <!-- 6-Month Activity Chart (pure SVG — works offline) -->
+            <section class="bg-white p-5 rounded-xl border border-slate-200/80 shadow-sm space-y-3">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                        <svg class="w-4 h-4 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        Activity — Last 6 Months
+                    </h3>
+                    <div class="flex items-center gap-4 text-[11px] font-semibold">
+                        <span class="flex items-center gap-1.5 text-slate-600"><span class="w-2.5 h-2.5 rounded-sm" style="background:#0ea5e9"></span> Registered</span>
+                        <span class="flex items-center gap-1.5 text-slate-600"><span class="w-2.5 h-2.5 rounded-sm" style="background:#f59e0b"></span> Check-outs</span>
+                    </div>
+                </div>
+                <div id="activityChart" class="w-full text-slate-400 text-xs text-center py-6">Loading activity…</div>
+            </section>
+
             <!-- Quick Launch & Activity Pulse Grid -->
             <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Quick Navigation & Desk Actions -->
@@ -689,6 +706,12 @@
                                 </svg>
                                 CSV
                             </button>
+                            <button id="importBtn" onclick="openImportModal()" title="Bulk-import records from a CSV file (Admin only)" class="hidden px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-600 hover:text-slate-900 font-semibold text-xs flex items-center gap-1.5 transition cursor-pointer">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                                </svg>
+                                Import
+                            </button>
                             <button onclick="printRegistryReport()" title="Open a printable inventory report" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-600 hover:text-slate-900 font-semibold text-xs flex items-center gap-1.5 transition cursor-pointer">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
@@ -707,7 +730,8 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                                 </svg>
                             </div>
-                            <input type="text" id="searchInput" oninput="debounceLoadFiles()" placeholder="Search by code, title, or shelf location..." class="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-slate-50/50">
+                            <input type="text" id="searchInput" oninput="debounceLoadFiles()" placeholder="Search by code, title, or shelf location..." class="w-full pl-9 pr-14 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-sky-500 bg-slate-50/50">
+                            <button onclick="openQuickFind()" title="Open quick find (Ctrl+K)" class="absolute inset-y-0 right-1.5 my-auto h-5 px-1.5 text-[9px] font-bold text-slate-400 border border-slate-300 rounded hover:text-sky-600 hover:border-sky-400 transition cursor-pointer">Ctrl K</button>
                         </div>
 
                         <!-- Category Filter -->
@@ -739,12 +763,12 @@
                     <table class="w-full text-left border-collapse min-w-[760px]">
                         <thead>
                             <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                <th class="py-3 px-4">Code & QR</th>
-                                <th class="py-3 px-3">Title & Information</th>
-                                <th class="py-3 px-3">Department</th>
-                                <th class="py-3 px-3">Storage Location</th>
-                                <th class="py-3 px-2 text-center">Security</th>
-                                <th class="py-3 px-3">Status</th>
+                                <th onclick="setFilesSort('code')" class="py-3 px-4 cursor-pointer select-none hover:text-sky-700" title="Sort by code">Code & QR <span class="sort-ind text-slate-300" data-sk="files:code">↕</span></th>
+                                <th onclick="setFilesSort('title')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by title">Title & Information <span class="sort-ind text-slate-300" data-sk="files:title">↕</span></th>
+                                <th onclick="setFilesSort('category')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by department">Department <span class="sort-ind text-slate-300" data-sk="files:category">↕</span></th>
+                                <th onclick="setFilesSort('location')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by location">Storage Location <span class="sort-ind text-slate-300" data-sk="files:location">↕</span></th>
+                                <th onclick="setFilesSort('classified')" class="py-3 px-2 text-center cursor-pointer select-none hover:text-sky-700" title="Sort by access level">Security <span class="sort-ind text-slate-300" data-sk="files:classified">↕</span></th>
+                                <th onclick="setFilesSort('status')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by status">Status <span class="sort-ind text-slate-300" data-sk="files:status">↕</span></th>
                                 <th class="py-3 px-4 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -926,12 +950,12 @@
                     <table class="w-full text-left border-collapse min-w-[700px]">
                         <thead>
                             <tr class="bg-slate-50/80 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                <th class="py-3 px-4">Date & Time</th>
-                                <th class="py-3 px-3">Action</th>
-                                <th class="py-3 px-3">Document</th>
-                                <th class="py-3 px-3">Department</th>
-                                <th class="py-3 px-3">Operating Staff</th>
-                                <th class="py-3 px-4">Notes / Operational Context</th>
+                                <th onclick="setLogsSort('created')" class="py-3 px-4 cursor-pointer select-none hover:text-sky-700" title="Sort by date">Date & Time <span class="sort-ind text-slate-300" data-sk="logs:created">↕</span></th>
+                                <th onclick="setLogsSort('action')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by action">Action <span class="sort-ind text-slate-300" data-sk="logs:action">↕</span></th>
+                                <th onclick="setLogsSort('code')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by document">Document <span class="sort-ind text-slate-300" data-sk="logs:code">↕</span></th>
+                                <th onclick="setLogsSort('category')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by department">Department <span class="sort-ind text-slate-300" data-sk="logs:category">↕</span></th>
+                                <th onclick="setLogsSort('user')" class="py-3 px-3 cursor-pointer select-none hover:text-sky-700" title="Sort by staff member">Operating Staff <span class="sort-ind text-slate-300" data-sk="logs:user">↕</span></th>
+                                <th onclick="setLogsSort('notes')" class="py-3 px-4 cursor-pointer select-none hover:text-sky-700" title="Sort by notes">Notes / Operational Context <span class="sort-ind text-slate-300" data-sk="logs:notes">↕</span></th>
                             </tr>
                         </thead>
                         <tbody id="auditTableBody" class="divide-y divide-slate-100 text-xs">
@@ -1394,6 +1418,57 @@
     </div>
 
     <!-- Classified Check-Out: Quick-PIN Confirmation Modal (Two-Step Verification) -->
+    <!-- Bulk CSV Import Modal (Admin) -->
+    <div id="importModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900 tracking-tight">Bulk Import Documents</h3>
+                    <p class="text-xs text-slate-500">Upload a CSV exported from Excel — every row is validated before anything is saved.</p>
+                </div>
+                <button onclick="closeImportModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition flex items-center justify-center cursor-pointer" title="Close">✕</button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="flex flex-wrap items-center gap-3">
+                    <label class="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition cursor-pointer">
+                        Choose CSV file…
+                        <input type="file" id="importFileInput" accept=".csv,text/csv" onchange="importFileSelected(this)" class="hidden">
+                    </label>
+                    <span id="importFileName" class="text-xs text-slate-500 font-medium">No file selected</span>
+                    <button onclick="downloadCsvTemplate()" class="ml-auto text-[11px] text-sky-600 hover:text-sky-800 font-semibold underline underline-offset-2 cursor-pointer">Download template</button>
+                </div>
+                <div class="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                    Required columns: <span class="font-mono font-bold text-slate-700">file_code, title, category, type</span> (PHYSICAL / DIGITAL / HYBRID)
+                    <span class="text-slate-400">· optional: physical_location, digital_path</span>
+                </div>
+                <div id="importPreview" class="hidden"></div>
+                <div id="importResults" class="hidden"></div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-2">
+                <button onclick="closeImportModal()" class="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-100 text-slate-600 text-xs font-bold transition cursor-pointer">Close</button>
+                <button id="importConfirmBtn" onclick="confirmCsvImport()" disabled class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition cursor-pointer opacity-50 cursor-not-allowed">Import Records</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ctrl+K Quick Find Palette -->
+    <div id="quickFindModal" class="fixed inset-0 z-[60] hidden items-start justify-center p-4 pt-[12vh] bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden border border-slate-200">
+            <div class="flex items-center gap-3 px-4 py-3 border-b border-slate-200">
+                <svg class="w-4 h-4 text-slate-400 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <input type="text" id="quickFindInput" oninput="quickFindSearch()" onkeydown="quickFindKey(event)" autocomplete="off" spellcheck="false" placeholder="Search by code, title, or department…" class="flex-1 bg-transparent border-0 outline-none text-sm text-slate-800 p-0 focus:ring-0">
+                <kbd class="text-[10px] font-bold text-slate-400 border border-slate-200 rounded px-1.5 py-0.5 flex-none">ESC</kbd>
+            </div>
+            <div id="quickFindResults" class="max-h-80 overflow-y-auto p-2"></div>
+            <div class="px-4 py-2 border-t border-slate-200 flex items-center justify-between text-[10px] text-slate-400 font-semibold">
+                <span>↑↓ navigate · Enter open in registry</span>
+                <span id="quickFindCount"></span>
+            </div>
+        </div>
+    </div>
+
     <div id="pinConfirmModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4 border border-rose-200">
             <div class="flex items-center gap-3">
@@ -1440,6 +1515,20 @@
         let logsPage = 1;
         let activeTab = 'dashboard';
         let debounceTimer = null;
+
+        // --- Table sort + rows-per-page state ---
+        let filesSort = { key: '', dir: 'asc' };
+        let logsSort = { key: '', dir: 'desc' };
+        let filesPageSize = REGISTRY_PAGE_SIZE;
+        let logsPageSize = AUDIT_PAGE_SIZE;
+
+        // --- Quick find (Ctrl+K) state ---
+        let quickFindItems = [];
+        let quickFindIndex = 0;
+        let quickFindTimer = null;
+
+        // --- CSV import state ---
+        let pendingImportText = '';
 
         // --- AUTH HELPERS: attach the session token to every protected API call ---
         let currentPinCode = null;
@@ -1542,6 +1631,7 @@
                 const statOverdue = document.getElementById('statOverdue');
                 if (statOverdue) statOverdue.innerText = stats.overdue_files || 0;
                 document.getElementById('statVelocity').innerText = stats.today_actions || 0;
+                renderActivityChart(); // keep the 6-month activity bars fresh alongside the KPIs
 
                 // Tab Badge indicators
                 document.getElementById('tabBadgeRegistry').innerText = stats.total_files || 0;
@@ -1649,6 +1739,63 @@
             }
         }
 
+        // --- SORTING: click a column header to toggle asc/desc ---
+        function setFilesSort(key) {
+            if (filesSort.key === key) filesSort.dir = filesSort.dir === 'asc' ? 'desc' : 'asc';
+            else { filesSort.key = key; filesSort.dir = 'asc'; }
+            filesPage = 1;
+            updateSortIndicators('files');
+            renderTable(allFiles);
+        }
+
+        function setLogsSort(key) {
+            if (logsSort.key === key) logsSort.dir = logsSort.dir === 'asc' ? 'desc' : 'asc';
+            else { logsSort.key = key; logsSort.dir = 'asc'; }
+            logsPage = 1;
+            updateSortIndicators('logs');
+            filterLogs();
+        }
+
+        function updateSortIndicators(prefix) {
+            const state = prefix === 'files' ? filesSort : logsSort;
+            document.querySelectorAll('.sort-ind[data-sk^="' + prefix + ':"]').forEach(el => {
+                const active = el.dataset.sk.split(':')[1] === state.key;
+                el.textContent = active ? (state.dir === 'asc' ? '▲' : '▼') : '↕';
+                el.className = 'sort-ind select-none ' + (active ? 'text-sky-600' : 'text-slate-300');
+            });
+        }
+
+        function cmpVal(a, b) {
+            if (typeof a === 'number' && typeof b === 'number') return a - b;
+            return String(a == null ? '' : a).localeCompare(String(b == null ? '' : b), undefined, { numeric: true, sensitivity: 'base' });
+        }
+
+        function sortFilesList(list) {
+            if (!filesSort.key) return list;
+            const k = filesSort.key, dir = filesSort.dir === 'asc' ? 1 : -1;
+            const val = f => k === 'code' ? (f.file_code || '')
+                       : k === 'title' ? (f.title || '')
+                       : k === 'category' ? (f.category || '')
+                       : k === 'location' ? (f.physical_location || '')
+                       : k === 'classified' ? (f.is_classified ? 1 : 0)
+                       : k === 'status' ? (f.status || '')
+                       : '';
+            return list.slice().sort((a, b) => cmpVal(val(a), val(b)) * dir);
+        }
+
+        function sortLogsList(list) {
+            if (!logsSort.key) return list;
+            const k = logsSort.key, dir = logsSort.dir === 'asc' ? 1 : -1;
+            const val = l => k === 'created' ? (l.created_at || '')
+                       : k === 'action' ? (l.action || '')
+                       : k === 'code' ? (l.file_code || '')
+                       : k === 'category' ? (l.file_category || '')
+                       : k === 'user' ? (l.user_name || '')
+                       : k === 'notes' ? (l.notes || '')
+                       : '';
+            return list.slice().sort((a, b) => cmpVal(val(a), val(b)) * dir);
+        }
+
         function renderTable(files) {
             const tbody = document.getElementById('fileTableBody');
             const emptyState = document.getElementById('emptyState');
@@ -1659,17 +1806,18 @@
             if (!files || files.length === 0) {
                 tbody.innerHTML = '';
                 emptyState.classList.remove('hidden');
-                renderPager('filesPager', 0, filesPage, REGISTRY_PAGE_SIZE, 'setFilesPage');
+                renderPager('filesPager', 0, filesPage, filesPageSize, 'setFilesPage');
                 return;
             }
 
             emptyState.classList.add('hidden');
             // Show only the current page of rows (page numbers render below the table)
-            const totalPages = Math.max(1, Math.ceil(files.length / REGISTRY_PAGE_SIZE));
+            const sorted = sortFilesList(files);
+            const totalPages = Math.max(1, Math.ceil(sorted.length / filesPageSize));
             if (filesPage > totalPages) filesPage = totalPages; // clamp after deletions
             if (filesPage < 1) filesPage = 1;
-            const pageRows = files.slice((filesPage - 1) * REGISTRY_PAGE_SIZE, filesPage * REGISTRY_PAGE_SIZE);
-            renderPager('filesPager', files.length, filesPage, REGISTRY_PAGE_SIZE, 'setFilesPage');
+            const pageRows = sorted.slice((filesPage - 1) * filesPageSize, filesPage * filesPageSize);
+            renderPager('filesPager', sorted.length, filesPage, filesPageSize, 'setFilesPage');
             const canManage = isAdminSession();
             tbody.innerHTML = pageRows.map(f => {
                 const isAvail = f.status === 'AVAILABLE';
@@ -1808,8 +1956,8 @@
         function renderPager(elId, totalItems, currentPage, pageSize, setPageFn) {
             const el = document.getElementById(elId);
             if (!el) return;
-            const totalPages = Math.ceil(totalItems / pageSize);
-            if (totalItems === 0 || totalPages <= 1) {
+            const totalPages = Math.ceil(totalItems / pageSize) || 1;
+            if (totalItems === 0) {
                 el.innerHTML = '';
                 el.classList.add('hidden');
                 return;
@@ -1831,9 +1979,17 @@
                     ${p === page ? 'aria-current="page"' : ''}>${p}</button>`;
             }).join('');
 
+            // Rows-per-page selector — setter name derived from the pager's page function
+            const pageSizeFn = setPageFn.replace('Page', 'PageSize');
+            const sizeOpts = [10, 15, 25, 50].map(n => `<option value="${n}"${n === pageSize ? ' selected' : ''}>${n}</option>`).join('');
+
             el.innerHTML = `
                 <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-3 border-t border-slate-100">
-                    <div class="text-[11px] text-slate-500">Showing <span class="font-bold text-slate-700">${from}–${to}</span> of <span class="font-bold text-slate-700">${totalItems}</span> records</div>
+                    <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                        <span>Showing <span class="font-bold text-slate-700">${from}–${to}</span> of <span class="font-bold text-slate-700">${totalItems}</span> records</span>
+                        <select onchange="${pageSizeFn}(this.value)" class="border border-slate-200 rounded-lg px-1.5 py-1 text-[11px] font-bold text-slate-600 cursor-pointer focus:ring-1 focus:ring-sky-500" title="Rows per page">${sizeOpts}</select>
+                        <span>per page</span>
+                    </div>
                     <div class="flex items-center gap-1">
                         <button type="button" onclick="${setPageFn}(${page - 1})" class="${base} ${page <= 1 ? off : idle}" ${page <= 1 ? 'disabled' : ''} aria-label="Previous page">‹</button>
                         ${pages}
@@ -1851,18 +2007,30 @@
         }
 
         function setFilesPage(page) {
-            const totalPages = Math.max(1, Math.ceil(allFiles.length / REGISTRY_PAGE_SIZE));
+            const totalPages = Math.max(1, Math.ceil(allFiles.length / filesPageSize));
             filesPage = Math.min(Math.max(1, page), totalPages);
             renderTable(allFiles);
             scrollToTableTop('fileTableBody');
         }
 
+        function setFilesPageSize(v) {
+            filesPageSize = parseInt(v, 10) || REGISTRY_PAGE_SIZE;
+            filesPage = 1;
+            renderTable(allFiles);
+        }
+
         function setLogsPage(page) {
             const total = getFilteredLogs().length;
-            const totalPages = Math.max(1, Math.ceil(total / AUDIT_PAGE_SIZE));
+            const totalPages = Math.max(1, Math.ceil(total / logsPageSize));
             logsPage = Math.min(Math.max(1, page), totalPages);
             filterLogs();
             scrollToTableTop('auditTableBody');
+        }
+
+        function setLogsPageSize(v) {
+            logsPageSize = parseInt(v, 10) || AUDIT_PAGE_SIZE;
+            logsPage = 1;
+            filterLogs();
         }
 
         // --- OVERDUE HELPERS, CSV EXPORT & PRINT REPORTS ---
@@ -2057,6 +2225,301 @@
                     <div class="sign">Date</div>
                 </div>
             `);
+        }
+
+        // --- CSV BULK IMPORT ---
+        function openImportModal() {
+            if (!isAdminSession()) return showToast('Administrator privileges are required to import documents.', 'error');
+            pendingImportText = '';
+            const input = document.getElementById('importFileInput');
+            if (input) input.value = '';
+            document.getElementById('importFileName').textContent = 'No file selected';
+            document.getElementById('importPreview').classList.add('hidden');
+            document.getElementById('importResults').classList.add('hidden');
+            const btn = document.getElementById('importConfirmBtn');
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            document.getElementById('importModal').classList.remove('hidden');
+        }
+
+        function closeImportModal() {
+            document.getElementById('importModal').classList.add('hidden');
+        }
+
+        // Small quote-aware CSV line splitter (preview only — the server re-parses everything)
+        function splitCsvLine(line) {
+            const out = []; let cur = ''; let inQ = false;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (inQ) {
+                    if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+                    else if (ch === '"') inQ = false;
+                    else cur += ch;
+                } else if (ch === '"') inQ = true;
+                else if (ch === ',') { out.push(cur); cur = ''; }
+                else cur += ch;
+            }
+            out.push(cur);
+            return out;
+        }
+
+        async function importFileSelected(input) {
+            const file = input.files && input.files[0];
+            const nameEl = document.getElementById('importFileName');
+            const preview = document.getElementById('importPreview');
+            const results = document.getElementById('importResults');
+            const btn = document.getElementById('importConfirmBtn');
+            results.classList.add('hidden');
+            if (!file) {
+                pendingImportText = '';
+                nameEl.textContent = 'No file selected';
+                preview.classList.add('hidden');
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                return;
+            }
+
+            nameEl.textContent = `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`;
+            try {
+                pendingImportText = await file.text();
+            } catch (e) {
+                pendingImportText = await new Promise((resolve, reject) => {
+                    const fr = new FileReader();
+                    fr.onload = () => resolve(fr.result);
+                    fr.onerror = reject;
+                    fr.readAsText(file);
+                });
+            }
+
+            const lines = pendingImportText.split(/\r?\n/).filter(l => l.trim() !== '');
+            const header = (splitCsvLine(lines[0] || '').map(h => h.trim().toLowerCase().replace(/^\uFEFF/, '')));
+            const need = ['file_code', 'title', 'category', 'type'];
+            const missing = need.filter(c => !header.includes(c));
+            const body = lines.slice(1);
+
+            let html = `<div class="text-[11px] font-semibold mb-2 ${missing.length ? 'text-rose-600' : 'text-emerald-700'}">` +
+                (missing.length
+                    ? `⚠ Missing required column(s): ${escapeHtml(missing.join(', '))}`
+                    : `✓ Header looks good — ${body.length} data row(s) detected`) + `</div>`;
+            html += `<div class="overflow-x-auto border border-slate-200 rounded-lg"><table class="w-full text-[11px] text-left"><thead class="bg-slate-50 text-slate-500"><tr>` +
+                header.map(h => `<th class="px-2 py-1.5 font-bold">${escapeHtml(h)}</th>`).join('') + `</tr></thead><tbody>`;
+            body.slice(0, 5).forEach(l => {
+                const cells = splitCsvLine(l);
+                html += `<tr class="border-t border-slate-100">` +
+                    header.map((_, i) => `<td class="px-2 py-1.5 text-slate-700">${escapeHtml((cells[i] || '').slice(0, 60))}</td>`).join('') + `</tr>`;
+            });
+            html += `</tbody></table></div>`;
+            if (body.length > 5) html += `<div class="text-[10px] text-slate-400 mt-1.5">… showing first 5 of ${body.length} rows (preview only — every row is validated on import)</div>`;
+            preview.innerHTML = html;
+            preview.classList.remove('hidden');
+
+            const ok = !missing.length && body.length > 0;
+            btn.disabled = !ok;
+            btn.classList.toggle('opacity-50', !ok);
+            btn.classList.toggle('cursor-not-allowed', !ok);
+        }
+
+        async function confirmCsvImport() {
+            if (!pendingImportText) return;
+            const btn = document.getElementById('importConfirmBtn');
+            btn.disabled = true;
+            btn.textContent = 'Importing…';
+            try {
+                const res = await apiFetch('/api/files/import', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ csv: pendingImportText })
+                });
+                const result = await res.json().catch(() => ({}));
+                const results = document.getElementById('importResults');
+                let html = '';
+                if (res.ok && result.success) {
+                    html = `<div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">✅ ${escapeHtml(result.message)}</div>`;
+                    showToast(result.message, 'success');
+                    loadFiles();
+                    fetchDashboardStats();
+                    loadLogs();
+                } else {
+                    html = `<div class="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold">❌ ${escapeHtml(result.error || 'Import failed')}</div>`;
+                    if (res.status !== 401) showToast(result.error || 'Import failed', 'error');
+                }
+                if (result.skipped && result.skipped.length) {
+                    html += `<div class="mt-2 max-h-40 overflow-y-auto border border-amber-200 rounded-lg">` +
+                        result.skipped.map(s => `<div class="px-3 py-1.5 text-[11px] bg-amber-50 text-amber-800 border-b border-amber-100 last:border-b-0"><b>Line ${s.line}</b> · <span class="font-mono">${escapeHtml(s.code)}</span> — ${escapeHtml(s.reason)}</div>`).join('') +
+                        `</div>`;
+                }
+                results.innerHTML = html;
+                results.classList.remove('hidden');
+            } catch (err) {
+                showToast('Import failed', 'error');
+            }
+            btn.disabled = false;
+            btn.textContent = 'Import Records';
+        }
+
+        function downloadCsvTemplate() {
+            const csv = 'file_code,title,category,type,physical_location,digital_path\nDOC-2026-001,Sample Document Title,Administration,PHYSICAL,Cabinet A Shelf 1,\n';
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'archivex-import-template.csv';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+        }
+
+        // --- CTRL+K QUICK FIND ---
+        function openQuickFind() {
+            if (!hasFullSession()) return;
+            document.getElementById('quickFindModal').classList.remove('hidden');
+            const input = document.getElementById('quickFindInput');
+            input.value = '';
+            quickFindRender([]);
+            input.focus();
+        }
+
+        function closeQuickFind() {
+            document.getElementById('quickFindModal').classList.add('hidden');
+        }
+
+        function quickFindSearch() {
+            clearTimeout(quickFindTimer);
+            const q = document.getElementById('quickFindInput').value.trim();
+            if (!q) { quickFindRender([]); return; }
+            quickFindTimer = setTimeout(async () => {
+                try {
+                    const res = await apiFetch('/api/files?search=' + encodeURIComponent(q));
+                    const data = await res.json();
+                    quickFindRender(Array.isArray(data) ? data : []);
+                } catch (e) {
+                    quickFindRender([]);
+                }
+            }, 160);
+        }
+
+        function quickFindRender(items) {
+            quickFindItems = (items || []).slice(0, 8);
+            quickFindIndex = 0;
+            quickFindPaint();
+        }
+
+        function quickFindPaint() {
+            const box = document.getElementById('quickFindResults');
+            const count = document.getElementById('quickFindCount');
+            if (count) count.textContent = quickFindItems.length ? `${quickFindItems.length} match${quickFindItems.length === 1 ? '' : 'es'}` : '';
+            if (!quickFindItems.length) {
+                const q = document.getElementById('quickFindInput').value.trim();
+                box.innerHTML = `<div class="text-center text-slate-400 text-xs py-6 px-4">${q ? 'No documents match “' + escapeHtml(q) + '”' : 'Start typing a code, title, or department…'}</div>`;
+                return;
+            }
+            box.innerHTML = quickFindItems.map((f, i) => `
+                <button type="button" onclick="quickFindGo(${i})" class="w-full text-left px-3 py-2 rounded-lg flex items-center gap-3 transition ${i === quickFindIndex ? 'bg-sky-50 ring-1 ring-sky-200' : 'hover:bg-slate-50'}">
+                    <span class="font-mono font-bold text-sky-700 text-xs flex-none">${escapeHtml(f.file_code)}</span>
+                    <span class="flex-1 text-xs text-slate-700 truncate">${escapeHtml(f.title)}</span>
+                    <span class="text-[10px] font-semibold flex-none ${f.status === 'AVAILABLE' ? 'text-emerald-600' : 'text-amber-600'}">${f.status === 'AVAILABLE' ? 'Available' : 'Checked Out'}</span>
+                </button>`).join('');
+        }
+
+        function quickFindMove(delta) {
+            if (!quickFindItems.length) return;
+            quickFindIndex = (quickFindIndex + delta + quickFindItems.length) % quickFindItems.length;
+            quickFindPaint();
+        }
+
+        function quickFindKey(e) {
+            if (e.key === 'ArrowDown') { e.preventDefault(); quickFindMove(1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); quickFindMove(-1); }
+            else if (e.key === 'Enter') { e.preventDefault(); quickFindGo(quickFindIndex); }
+            else if (e.key === 'Escape') { e.preventDefault(); closeQuickFind(); }
+        }
+
+        function quickFindGo(i) {
+            const f = quickFindItems[i];
+            if (!f) return;
+            closeQuickFind();
+            // Set the search term BEFORE any tab switch / filter reset triggers a
+            // reload, so every load that fires already carries the new filter
+            document.getElementById('searchInput').value = f.file_code;
+            filesPage = 1;
+            if (activeStatusFilter) setStatusFilter('');
+            if (activeClassifiedFilter === '1') toggleFilterClassified();
+            if (activeOverdueFilter === '1') toggleFilterOverdue(true);
+            switchTab('registry');
+            loadFiles();
+        }
+
+        // Global shortcut: Ctrl+K opens the palette (full sessions only)
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key && e.key.toLowerCase() === 'k') {
+                if (!hasFullSession()) return;
+                e.preventDefault();
+                const modal = document.getElementById('quickFindModal');
+                if (modal.classList.contains('hidden')) openQuickFind();
+                else closeQuickFind();
+            } else if (e.key === 'Escape') {
+                closeQuickFind();
+            }
+        });
+
+        // --- DASHBOARD: 6-MONTH ACTIVITY CHART (pure SVG — no plugins, works offline) ---
+        async function renderActivityChart() {
+            const box = document.getElementById('activityChart');
+            if (!box) return;
+            try {
+                const res = await apiFetch('/api/logs?limit=1000');
+                const logs = await res.json();
+                const list = Array.isArray(logs) ? logs : [];
+
+                const months = [];
+                const now = new Date();
+                for (let i = 5; i >= 0; i--) {
+                    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    months.push({
+                        key: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'),
+                        label: d.toLocaleString(undefined, { month: 'short' }),
+                        reg: 0, out: 0
+                    });
+                }
+                list.forEach(l => {
+                    const mk = String(l.created_at || '').slice(0, 7);
+                    const m = months.find(x => x.key === mk);
+                    if (!m) return;
+                    if (l.action === 'REGISTER') m.reg++;
+                    else if (l.action === 'CHECK_OUT') m.out++;
+                });
+
+                const max = Math.max(4, ...months.map(m => Math.max(m.reg, m.out)));
+                const W = 640, H = 220, padL = 34, padR = 10, padT = 18, padB = 30;
+                const plotW = W - padL - padR, plotH = H - padT - padB;
+                const groupW = plotW / months.length;
+                const barW = Math.min(26, groupW * 0.3);
+
+                let svg = `<svg viewBox="0 0 ${W} ${H}" class="w-full h-auto" role="img" aria-label="Monthly activity: registered vs check-outs">`;
+                for (let g = 0; g <= 4; g++) {
+                    const y = padT + plotH - (plotH * g / 4);
+                    const v = Math.round(max * g / 4);
+                    svg += `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`;
+                    svg += `<text x="${padL - 6}" y="${y + 3}" text-anchor="end" font-size="9" fill="#94a3b8">${v}</text>`;
+                }
+                months.forEach((m, i) => {
+                    const cx = padL + groupW * i + groupW / 2;
+                    const hReg = (m.reg / max) * plotH;
+                    const hOut = (m.out / max) * plotH;
+                    const yReg = padT + plotH - hReg;
+                    const yOut = padT + plotH - hOut;
+                    svg += `<rect x="${(cx - barW - 2).toFixed(1)}" y="${yReg.toFixed(1)}" width="${barW}" height="${hReg.toFixed(1)}" rx="3" fill="#0ea5e9"><title>${m.label}: ${m.reg} registered</title></rect>`;
+                    svg += `<rect x="${(cx + 2).toFixed(1)}" y="${yOut.toFixed(1)}" width="${barW}" height="${hOut.toFixed(1)}" rx="3" fill="#f59e0b"><title>${m.label}: ${m.out} check-outs</title></rect>`;
+                    if (m.reg) svg += `<text x="${(cx - barW / 2 - 2).toFixed(1)}" y="${(yReg - 4).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="#0284c7">${m.reg}</text>`;
+                    if (m.out) svg += `<text x="${(cx + barW / 2 + 2).toFixed(1)}" y="${(yOut - 4).toFixed(1)}" text-anchor="middle" font-size="9" font-weight="700" fill="#b45309">${m.out}</text>`;
+                    svg += `<text x="${cx.toFixed(1)}" y="${H - 10}" text-anchor="middle" font-size="10" font-weight="600" fill="#94a3b8">${m.label}</text>`;
+                });
+                svg += `</svg>`;
+                box.innerHTML = svg;
+            } catch (e) {
+                box.textContent = 'Activity data unavailable.';
+            }
         }
 
         // --- FILTER TOGGLES ---
@@ -2346,17 +2809,18 @@
             if (!filtered || filtered.length === 0) {
                 tbody.innerHTML = '';
                 emptyState.classList.remove('hidden');
-                renderPager('logsPager', 0, logsPage, AUDIT_PAGE_SIZE, 'setLogsPage');
+                renderPager('logsPager', 0, logsPage, logsPageSize, 'setLogsPage');
                 return;
             }
 
             emptyState.classList.add('hidden');
             // Show only the current page of rows (page numbers render below the table)
-            const totalPages = Math.max(1, Math.ceil(filtered.length / AUDIT_PAGE_SIZE));
+            const sortedLogs = sortLogsList(filtered);
+            const totalPages = Math.max(1, Math.ceil(sortedLogs.length / logsPageSize));
             if (logsPage > totalPages) logsPage = totalPages; // clamp after filter changes
             if (logsPage < 1) logsPage = 1;
-            const pageRows = filtered.slice((logsPage - 1) * AUDIT_PAGE_SIZE, logsPage * AUDIT_PAGE_SIZE);
-            renderPager('logsPager', filtered.length, logsPage, AUDIT_PAGE_SIZE, 'setLogsPage');
+            const pageRows = sortedLogs.slice((logsPage - 1) * logsPageSize, logsPage * logsPageSize);
+            renderPager('logsPager', sortedLogs.length, logsPage, logsPageSize, 'setLogsPage');
             tbody.innerHTML = pageRows.map(l => {
                 const chip = (cls, dot, txt) => '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border font-bold text-[10px] tracking-wide whitespace-nowrap ' + cls + '"><span class="w-1.5 h-1.5 rounded-full ' + dot + '"></span>' + txt + '</span>';
                 const badge = l.action === 'CHECK_OUT' ? chip('bg-amber-50 text-amber-700 border-amber-200', 'bg-amber-500', 'CHECK OUT')
@@ -3066,6 +3530,8 @@
             const authContainer = document.getElementById('authContainer');
             const registerBtn = document.getElementById('registerBtn');
             const loginBtn = document.getElementById('loginBtn');
+            const importBtn = document.getElementById('importBtn');
+            if (importBtn) importBtn.classList.toggle('hidden', !isAdminSession());
 
             if (currentUser) {
                 // Logged in state: Show user profile and admin actions
