@@ -1410,7 +1410,7 @@ app.get('/view/:code', (req, res) => {
                                             </div>
                                             <p id="gateErr" class="hidden text-[11px] font-semibold text-rose-600"></p>
                                         </div>
-                                        <a id="digitalLink" target="_blank" class="hidden mt-2 w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-center rounded-xl font-bold text-sm shadow-md shadow-sky-600/20 transition">
+                                        <a id="digitalLink" target="_blank" class="hidden mt-2 block w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-center rounded-xl font-bold text-sm shadow-md shadow-sky-600/20 transition">
                                             Open Digital Document ↗
                                         </a>
                                     ` : hasDigital && href ? `
