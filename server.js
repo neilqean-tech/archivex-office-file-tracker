@@ -1369,60 +1369,65 @@ app.get('/view/:code', (req, res) => {
                 <script src="https://cdn.tailwindcss.com"></script>
             </head>
             <body class="bg-slate-100 p-4 font-sans text-slate-800 flex items-center justify-center min-h-screen">
-                <div class="max-w-md w-full bg-white p-6 rounded-2xl shadow-xl border border-slate-200 space-y-4">
+                <div class="max-w-md w-full bg-white p-7 rounded-2xl shadow-xl border border-slate-200 space-y-5">
                     <div class="flex items-center justify-between">
                         <span class="font-mono font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded text-xs border border-sky-200">${escapeHtml(file.file_code)}</span>
                         <span class="text-xs px-2.5 py-0.5 rounded-full font-bold ${file.status === 'AVAILABLE' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">${escapeHtml(file.status)}</span>
                     </div>
                     <div>
-                        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">${escapeHtml(file.category)}</span>
-                        <h1 class="text-lg font-bold text-slate-900 mt-0.5">${escapeHtml(file.title)}</h1>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span class="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold border">${escapeHtml(file.type)}</span>
-                            ${file.is_classified === 1 ? '<span class="text-xs px-2 py-0.5 rounded bg-rose-50 text-rose-700 font-bold border border-rose-200">🔒 Classified</span>' : ''}
-                        </div>
+                        <h1 class="text-xl font-bold text-slate-900 leading-snug">${escapeHtml(file.title)}</h1>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mt-1.5">${escapeHtml(file.category)} · ${escapeHtml(file.type)}${file.is_classified === 1 ? ' · <span class="text-rose-500">🔒 Classified</span>' : ''}</p>
                     </div>
                     
-                    ${file.physical_location ? `
-                        <div id="locBox" class="${needsUnlock ? 'hidden ' : ''}p-3 bg-slate-50 rounded-xl text-xs space-y-0.5 border border-slate-100">
-                            <span class="text-slate-400 block font-medium">Physical Location:</span>
-                            <span id="locVal" class="font-bold text-slate-700">${needsUnlock ? '' : escapeHtml(file.physical_location)}</span>
+                    <!-- Details card: one tidy block with icon-led rows -->
+                    <div class="rounded-xl border border-slate-200 overflow-hidden divide-y divide-slate-100">
+                        ${file.physical_location ? `
+                        <div id="locBox" class="${needsUnlock ? 'hidden ' : ''}p-4">
+                            <div class="flex items-start gap-3">
+                                <span class="text-base leading-none mt-0.5">📍</span>
+                                <div class="min-w-0">
+                                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Storage location</div>
+                                    <span id="locVal" class="font-semibold text-slate-800">${needsUnlock ? '' : escapeHtml(file.physical_location)}</span>
+                                </div>
+                            </div>
                         </div>
-                    ` : ''}
+                        ` : ''}
 
-                    ${needsUnlock ? `
-                        <!-- Classified: location + digital copy unlock after server-side Quick-PIN verification -->
-                        <div id="pinGate" class="p-3.5 rounded-xl bg-rose-50 border border-rose-200 space-y-2">
-                            <div class="text-xs font-bold text-rose-700 flex items-center gap-1.5">
-                                <span>🔒</span> Classified Document — Quick-PIN Required
+                        <div class="p-4">
+                            <div class="flex items-start gap-3">
+                                <span class="text-base leading-none mt-0.5">💾</span>
+                                <div class="min-w-0 flex-1">
+                                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Digital copy</div>
+                                    ${needsUnlock ? `
+                                        <!-- Classified: digital copy unlocks after server-side Quick-PIN verification -->
+                                        <div id="pinGate" class="mt-1.5 space-y-2">
+                                            <div class="text-xs font-bold text-rose-600 flex items-center gap-1.5">
+                                                <span>🔒</span> Classified Document — Quick-PIN Required
+                                            </div>
+                                            <div class="flex gap-2">
+                                                <input id="gatePin" type="password" inputmode="numeric" maxlength="4" placeholder="Quick-PIN" class="flex-1 min-w-0 p-2 text-sm font-mono text-center tracking-widest border border-rose-300 rounded-lg bg-white focus:ring-2 focus:ring-rose-500">
+                                                <button id="gateBtn" type="button" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm transition cursor-pointer">Unlock</button>
+                                            </div>
+                                            <p id="gateErr" class="hidden text-[11px] font-semibold text-rose-600"></p>
+                                        </div>
+                                        <a id="digitalLink" target="_blank" class="hidden mt-2 w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white text-center rounded-xl font-bold text-sm shadow-md shadow-sky-600/20 transition">
+                                            Open Digital Document ↗
+                                        </a>
+                                    ` : hasDigital && href ? `
+                                        <a href="${escapeHtml(href)}" target="_blank" class="mt-1.5 inline-flex items-center gap-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold text-sm shadow-md shadow-sky-600/20 transition">
+                                            Open Digital Document <span class="text-base leading-none">↗</span>
+                                        </a>
+                                        <p class="text-[10px] text-slate-400 font-mono mt-2 break-all">${escapeHtml(rawPath)}</p>
+                                    ` : hasDigital ? `
+                                        <p class="text-xs font-mono text-slate-600 break-all mt-1">${escapeHtml(rawPath)}</p>
+                                        <p class="text-[11px] text-slate-400 mt-1">This reference cannot be opened as a link.</p>
+                                    ` : `
+                                        <p class="text-xs text-amber-700 mt-1">This is a physical-only file. Original copy is in storage.</p>
+                                    `}
+                                </div>
                             </div>
-                            <div class="flex gap-2">
-                                <input id="gatePin" type="password" inputmode="numeric" maxlength="4" placeholder="Quick-PIN" class="flex-1 min-w-0 p-2.5 text-sm font-mono text-center tracking-widest border border-rose-300 rounded-lg bg-white focus:ring-2 focus:ring-rose-500">
-                                <button id="gateBtn" type="button" class="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-sm transition cursor-pointer">Unlock</button>
-                            </div>
-                            <p id="gateErr" class="hidden text-[11px] font-semibold text-rose-600"></p>
                         </div>
-                        <a id="digitalLink" target="_blank" class="hidden w-full py-3 bg-sky-600 hover:bg-sky-700 text-white text-center rounded-xl font-bold text-sm shadow-md shadow-sky-600/20 transition">
-                            Open Digital Document ↗
-                        </a>
-                    ` : hasDigital && href ? `
-                        <div class="pt-2 space-y-2">
-                            <a href="${escapeHtml(href)}" target="_blank" class="block w-full py-3 bg-sky-600 hover:bg-sky-700 text-white text-center rounded-xl font-bold text-sm shadow-md shadow-sky-600/20 transition">
-                                Open Digital Document ↗
-                            </a>
-                            <p class="text-[10px] text-slate-400 text-center font-mono truncate">${escapeHtml(rawPath)}</p>
-                        </div>
-                    ` : hasDigital ? `
-                        <div class="p-3 bg-slate-50 rounded-xl text-xs border border-slate-100 text-center space-y-1">
-                            <span class="text-slate-400 block font-medium">Digital Reference</span>
-                            <span class="font-mono text-slate-600 break-all">${escapeHtml(rawPath)}</span>
-                            <p class="text-[10px] text-slate-400">This reference cannot be opened as a link.</p>
-                        </div>
-                    ` : `
-                        <div class="p-3 bg-amber-50 rounded-xl text-xs text-amber-700 border border-amber-200 text-center">
-                            This is a physical-only file. Original copy is in storage.
-                        </div>
-                    `}
+                    </div>
 
                     <div class="pt-2 text-center border-t border-slate-100">
                         <a href="/" class="text-xs text-slate-500 hover:text-sky-600 font-semibold">← Open Office File Tracker Dashboard</a>
