@@ -10,3 +10,6 @@ node_modules/
 
 # Manual code snapshots (fallback version control)
 _snapshots/
+
+# Digital copies opened by the viewer (personal documents live on disk, not in git)
+docs/
