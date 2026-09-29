@@ -36,6 +36,10 @@ async function j(method, p, body, token) {
   ok('pre-test backup downloaded', bakRes.status === 200 && bakBuf.length > 1000, bakBuf.length + ' bytes');
   const pre = await j('GET', '/api/files', undefined, token);
   const preCount = pre.data.length;
+  // Baseline of already-disposed records (demo data may legitimately ship
+  // with one, e.g. LEG-2026-042) so later checks compare against it.
+  const preDisposed = await j('GET', '/api/files?status=DISPOSED', undefined, token);
+  const baseDisposed = preDisposed.data.length;
 
   // --- 1. Create with retention dates ---
   const r1 = await j('POST', '/api/files', { file_code: 'RET-TEST-001', title: 'Past Retention Record', category: 'HR', type: 'PHYSICAL', physical_location: 'Cabinet T 1', retention_due: '2020-01-01' }, token);
@@ -74,11 +78,11 @@ async function j(method, p, body, token) {
 
   // --- 5. Post-disposal state ---
   const st2 = await j('GET', '/api/dashboard/stats', undefined, token);
-  ok('stats after dispose', st2.data.disposal_due_files === 0 && st2.data.disposed_files === 1, 'due=' + st2.data.disposal_due_files + ' disposed=' + st2.data.disposed_files);
+  ok('stats after dispose', st2.data.disposal_due_files === 0 && st2.data.disposed_files === baseDisposed + 1, 'due=' + st2.data.disposal_due_files + ' disposed=' + st2.data.disposed_files);
   const due2 = await j('GET', '/api/files?disposal=1', undefined, token);
   ok('disposed record leaves due list', due2.data.length === 0, 'n=' + due2.data.length);
   const disList = await j('GET', '/api/files?status=DISPOSED', undefined, token);
-  ok('disposed filter finds it', disList.data.length === 1 && disList.data[0].file_code === 'RET-TEST-001', 'n=' + disList.data.length);
+  ok('disposed filter finds it', disList.data.length === baseDisposed + 1 && disList.data.some(f => f.file_code === 'RET-TEST-001'), 'n=' + disList.data.length);
 
   const again = await j('POST', `/api/files/${r1.data.id}/dispose`, { pin_code: '1234' }, token);
   ok('double dispose -> 409', again.status === 409 && again.data.code === 'ALREADY_DISPOSED', JSON.stringify(again.data));
@@ -129,7 +133,7 @@ async function j(method, p, body, token) {
   ok('test rows gone after restore', !codes2.some(c => /^(RET-TEST|RET-CSV)/.test(c)), 'files=' + codes2.length);
   ok('file count back to pre-test', after.data.length === preCount, 'files=' + after.data.length + ' expected=' + preCount);
   const disAfter = await j('GET', '/api/files?status=DISPOSED', undefined, token2);
-  ok('no disposed leftovers', disAfter.data.length === 0, 'n=' + disAfter.data.length);
+  ok('no disposed leftovers', disAfter.data.length === baseDisposed, 'n=' + disAfter.data.length + ' expected=' + baseDisposed);
 
   try { fs.unlinkSync(BACKUP_FILE); } catch (e) {}
   console.log(results.join('\n'));
