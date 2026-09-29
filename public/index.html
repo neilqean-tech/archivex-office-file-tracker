@@ -331,6 +331,219 @@
                 radial-gradient(150px 70px at 92% 15%, rgba(139,92,246,0.38), transparent 70%),
                 #0b1220;
         }
+
+        /* ============================================================
+           MOBILE CARDS — Document Registry & Audit Logs (< 768px)
+           On phones each table row becomes a stacked card instead of a
+           sideways-scrolling table. Field labels are drawn with CSS
+           (nth-child + ::before) so no JS row templates are touched,
+           and everything lives inside this one media query — desktop
+           (>= 768px) keeps the exact same table layout.
+           ============================================================ */
+        @media screen and (max-width: 767px) {
+
+            /* --- Table area: card stack, aligned with the toolbar above --- */
+            #tabPane-registry .overflow-x-auto,
+            #tabPane-audit .overflow-x-auto {
+                padding: 12px 20px 4px;
+            }
+            #tabPane-registry table,
+            #tabPane-audit table {
+                display: block;
+                width: 100%;
+                min-width: 0 !important; /* defeats Tailwind min-w-[860px] / min-w-[700px] */
+            }
+            #tabPane-registry thead,
+            #tabPane-audit thead { display: none; }
+            #tabPane-registry tbody,
+            #tabPane-audit tbody {
+                display: block;
+                font-size: 13px;
+                line-height: 1.45;
+            }
+
+            /* --- One rounded card per record --- */
+            #tabPane-registry tbody tr,
+            #tabPane-audit tbody tr {
+                display: block;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                border-radius: 14px;
+                margin-bottom: 12px;
+                padding: 12px 14px;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+            }
+            /* Dark theme: quieter card edge (graphite's divide rules use !important) */
+            [data-theme='graphite'] #tabPane-registry tbody tr,
+            [data-theme='graphite'] #tabPane-audit tbody tr {
+                border-color: rgba(148, 163, 184, 0.22) !important;
+                box-shadow: none;
+            }
+
+            /* --- Cells: stacked blocks, always left-aligned --- */
+            #tabPane-registry tbody td,
+            #tabPane-audit tbody td {
+                display: block;
+                width: auto;
+                padding: 6px 0;
+                text-align: left;
+            }
+
+            /* --- Field labels (CSS-only; ::before boxes exist only where content is set) --- */
+            #tabPane-registry tbody td::before,
+            #tabPane-audit tbody td::before {
+                display: block;
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                color: #94a3b8;
+                margin-bottom: 2px;
+                padding-top: 3px;
+            }
+
+            /* ================= Registry cards ================= */
+            /* Header: record code + QR button split to the edges */
+            #tabPane-registry tbody td:nth-child(1) {
+                padding-top: 0;
+                padding-bottom: 10px;
+                border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+            }
+            #tabPane-registry tbody td:nth-child(1) > div {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                width: 100%;
+            }
+            #tabPane-registry tbody td:nth-child(1) button {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 40px;
+                min-height: 40px;
+                border-radius: 10px;
+            }
+
+            /* Title becomes the card headline */
+            #tabPane-registry tbody td:nth-child(2) {
+                padding-top: 8px;
+                padding-bottom: 4px;
+            }
+            #tabPane-registry tbody td:nth-child(2) > div:first-child {
+                font-size: 14px;
+                line-height: 1.35;
+            }
+            #tabPane-registry tbody td:nth-child(2) a {
+                max-width: 100%;
+                font-size: 12px;
+            }
+
+            /* Department … Retention: label column + value column */
+            #tabPane-registry tbody td:nth-child(n+3):nth-child(-n+7) {
+                display: grid;
+                grid-template-columns: 92px minmax(0, 1fr);
+                column-gap: 10px;
+                align-items: start;
+                padding: 5px 0;
+                border-top: 1px solid rgba(148, 163, 184, 0.16);
+            }
+            #tabPane-registry tbody td:nth-child(n+3):nth-child(-n+7) > * { grid-column: 2; }
+            #tabPane-registry tbody td:nth-child(3)::before { content: "Department"; }
+            #tabPane-registry tbody td:nth-child(4)::before { content: "Location"; }
+            #tabPane-registry tbody td:nth-child(5)::before { content: "Security"; }
+            #tabPane-registry tbody td:nth-child(6)::before { content: "Status"; }
+            #tabPane-registry tbody td:nth-child(7)::before { content: "Retention"; }
+            /* Bigger tap target for the security-classification toggle */
+            #tabPane-registry tbody td:nth-child(5) button {
+                min-height: 36px;
+                padding-top: 6px;
+                padding-bottom: 6px;
+            }
+
+            /* Actions become a wrapping row of full-size buttons */
+            #tabPane-registry tbody td:nth-child(8) {
+                margin-top: 4px;
+                padding-top: 10px;
+                border-top: 1px solid rgba(148, 163, 184, 0.25);
+            }
+            #tabPane-registry tbody td:nth-child(8) > div {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                justify-content: flex-start;
+                gap: 8px;
+                width: 100%;
+            }
+            #tabPane-registry tbody td:nth-child(8) > div > * { margin-left: 0; }
+            #tabPane-registry tbody td:nth-child(8) button {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                min-width: 40px;
+                min-height: 40px;
+                padding: 8px 12px;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                border-radius: 10px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            /* ================= Audit cards ================= */
+            /* Header line: date/time on the left, action chip on the right */
+            #tabPane-audit tbody tr {
+                display: grid;
+                grid-template-columns: 1fr auto;
+                column-gap: 10px;
+                align-items: center;
+            }
+            #tabPane-audit tbody td:nth-child(1) {
+                grid-column: 1;
+                padding-top: 0;
+            }
+            #tabPane-audit tbody td:nth-child(2) {
+                grid-column: 2;
+                padding-top: 0;
+                justify-self: end;
+            }
+            #tabPane-audit tbody td:nth-child(1) span:last-child {
+                display: inline;
+                margin-left: 6px;
+            }
+            /* Everything below the header spans the full card width */
+            #tabPane-audit tbody td:nth-child(n+3) { grid-column: 1 / -1; }
+            #tabPane-audit tbody td:nth-child(3) {
+                padding-top: 8px;
+                border-top: 1px solid rgba(148, 163, 184, 0.25);
+            }
+            #tabPane-audit tbody td:nth-child(3)::before { content: "Document"; }
+            #tabPane-audit tbody td:nth-child(4)::before { content: "Department"; }
+            #tabPane-audit tbody td:nth-child(5)::before { content: "Staff"; }
+            #tabPane-audit tbody td:nth-child(6)::before { content: "Notes"; }
+            #tabPane-audit tbody td:nth-child(4),
+            #tabPane-audit tbody td:nth-child(5) {
+                display: grid;
+                grid-template-columns: 92px minmax(0, 1fr);
+                column-gap: 10px;
+                align-items: start;
+                padding: 5px 0;
+                border-top: 1px solid rgba(148, 163, 184, 0.16);
+            }
+            #tabPane-audit tbody td:nth-child(4) > *,
+            #tabPane-audit tbody td:nth-child(5) > * { grid-column: 2; }
+            #tabPane-audit tbody td:nth-child(6) {
+                margin-top: 4px;
+                padding-top: 6px;
+                border-top: 1px solid rgba(148, 163, 184, 0.16);
+                font-size: 12.5px;
+            }
+
+            /* --- Pager: page buttons may wrap instead of overflowing --- */
+            #filesPager > div > div:last-child,
+            #logsPager > div > div:last-child {
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+        }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col font-sans">
