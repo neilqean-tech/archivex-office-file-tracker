@@ -643,6 +643,27 @@
         @media screen and (max-width: 359px) {
             header > div > div:first-child > div:first-child { display: none; }
         }
+
+        /* ============================================================
+           MODALS: always fit the screen, scroll inside instead
+           The register form is 952px tall. On a 777px-tall viewport the
+           title row sat above the screen and the Save button below it,
+           with overflow-hidden blocking any scrolling — so the form
+           could not be seen whole or submitted. Cap every modal card at
+           the overlay's content box (100% of the padded overlay) and let
+           it scroll; the long forms keep their title bar stuck to the
+           top so the close button stays reachable.
+           ============================================================ */
+        div[id$="Modal"] > div {
+            max-height: 100%;
+            overflow-y: auto;
+        }
+        #fileModal > div > div:first-child,
+        #staffModal > div > div:first-child {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col font-sans">
