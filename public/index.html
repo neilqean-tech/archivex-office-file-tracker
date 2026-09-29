@@ -544,6 +544,74 @@
                 justify-content: flex-end;
             }
         }
+
+        /* ============================================================
+           TOP BAR & TAB ROW — phones (< 768px)
+           The bar wants ~484px of width on a 390px screen, which made
+           the whole page scroll sideways and squeezed "v2.1 Tabs" and
+           "Log Out" onto two lines. On phones we drop the two purely
+           decorative items (version badge, team icon), turn Register
+           Document into a small "+" icon and let the tab row wrap onto
+           two lines. Desktop (>= 768px) is untouched.
+           ============================================================ */
+        @media screen and (max-width: 767px) {
+
+            /* --- Bar: tighter padding/gaps, never wider than the screen --- */
+            header > div {
+                gap: 8px;
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+            header > div > div:first-child {   /* brand group */
+                min-width: 0;
+            }
+            header > div > div:first-child > * + * { margin-left: 8px; }
+            header > div > div:last-child { gap: 8px; }   /* actions group */
+            header h1 { white-space: nowrap; }
+            header h1 + span { display: none; }  /* "v2.1 Tabs" badge */
+
+            /* --- Account cluster: labels stay on one line --- */
+            #authContainer > div { gap: 6px; }
+            header button { white-space: nowrap; }
+            #manageStaffBtn { display: none; }   /* team icon (Options tab still has it) */
+
+            /* Register Document becomes a compact "+" icon; the text is
+               kept for screen readers instead of being deleted. */
+            #registerBtn {
+                position: relative;
+                padding: 8px 10px;
+            }
+            #registerBtn span {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                margin: -1px;
+                overflow: hidden;
+                clip: rect(0 0 0 0);
+                white-space: nowrap;
+                border: 0;
+            }
+
+            /* --- Tab row: wrap onto rows instead of scrolling sideways --- */
+            nav > div.overflow-x-auto {
+                flex-wrap: wrap;
+                overflow-x: visible;
+                row-gap: 2px;
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+            nav .tab-btn {
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+        }
+
+        /* Very small phones (<= 359px): the logo tile would squeeze the
+           ARCHIVEX wordmark into the buttons, so drop the tile only here. */
+        @media screen and (max-width: 359px) {
+            header > div > div:first-child > div:first-child { display: none; }
+        }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col font-sans">
